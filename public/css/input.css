@@ -1,0 +1,67 @@
+/* =========================================================
+   Mercalocal — Hoja de estilos principal
+   Compilada con Tailwind CSS v3 (npx tailwindcss)
+   Para regenerar el archivo style.css ejecuta:
+       npm run build:css
+   ========================================================= */
+
+/* Directivas de Tailwind CSS v3 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Variables CSS globales del proyecto ── */
+:root {
+    /* Colores de marca */
+    --ml-orange:       #f97316;   /* primary */
+    --ml-orange-dark:  #ea6c0a;
+    --ml-green:        #22c55e;   /* accent */
+    --ml-dark:         #1e293b;   /* secondary */
+
+    /* Footer */
+    --ml-footer:       #1e293b;
+
+    /* Tonos de texto */
+    --ml-text:         #1e293b;
+    --ml-text-muted:   #64748b;
+
+    /* Fondo y bordes */
+    --ml-bg:           #f8fafc;
+    --ml-border:       #e2e8f0;
+
+    /* Beige/crema (usado en footer logo) */
+    --ml-beige:        #fbbf24;
+}
+
+/* ── Cuerpo por defecto ── */
+body {
+    background-color: theme('colors.background');
+    color: theme('colors.secondary');
+}
+
+/* ── Clases utilitarias reutilizables ── */
+@layer components {
+
+    /* Botón primario naranja */
+    .btn-primary {
+        @apply inline-flex items-center justify-center
+               px-5 py-2.5
+               bg-primary text-white font-bold rounded-lg
+               hover:bg-orange-600 active:bg-orange-700
+               transition-colors shadow-sm
+               focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
+    }
+
+    /* Card estilo GitHub */
+    .gh-card {
+        @apply bg-white border border-gray-200 rounded-lg shadow-none hover:border-gray-300 transition-colors;
+    }
+
+    /* Input estilo GitHub */
+    .gh-input {
+        @apply w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg
+               text-gray-900 placeholder-gray-400
+               focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary
+               text-sm transition-colors;
+    }
+}

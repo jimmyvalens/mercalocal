@@ -1,0 +1,12 @@
+{
+  "name": "mercalocal",
+  "version": "1.0.0",
+  "description": "Mercalocal con Tailwind",
+  "main": "index.js",
+  "scripts": {
+    "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/style.css -w"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1"
+  }
+}
