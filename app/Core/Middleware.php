@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Core/Middleware.php — Gestión de permisos y acceso
+// app/Core/Middleware.php — Gestión de permisos y acceso
 // =========================================================
 namespace App\Core;
 
@@ -12,7 +12,7 @@ class Middleware
     public static function requireAuth()
     {
         if (!Session::get('user_id')) {
-            Session::setFlash('error', 'Debes iniciar sesión para acceder.');
+            // Session::setFlash('error', 'Debes iniciar sesión para acceder.');
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
@@ -30,7 +30,7 @@ class Middleware
         $roles = (array)$roles;
 
         if (!in_array($userRole, $roles, true)) {
-            Session::setFlash('error', 'Acceso denegado. No tienes permisos para ver esta página.');
+            // Session::setFlash('error', 'Acceso denegado. No tienes permisos para ver esta página.');
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
