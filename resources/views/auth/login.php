@@ -41,7 +41,9 @@
         </form>
         <div class="flex items-center justify-between mt-4">
             <span class="text-sm text-gray-500">¿No tienes cuenta? <a href="/register" class="font-bold text-primary hover:text-orange-600">Regístrate</a></span>
-            <a href="#" class="text-sm font-bold text-primary hover:text-orange-600">¿Olvidaste tu contraseña?</a>
+            <a href="#" onclick="mostrarEnDesarrollo('El restablecimiento de contraseña por correo'); return false;" class="text-sm font-medium text-primary hover:text-green-700">
+                ¿Olvidaste tu contraseña?
+            </a>
         </div>
     </div>
 </div>
