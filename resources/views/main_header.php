@@ -49,16 +49,16 @@
 
                     <!-- Cart -->
                     <?php if ($userRole !== 'BUSINESS'): ?>
-                    <!-- Cart -->
-                    <a href="<?= BASE_URL ?>/cart" class="relative p-2 text-gray-500 hover:text-primary transition-colors hover:bg-green-50 rounded-full">
-                        <i class="fa-solid fa-cart-shopping text-xl"></i>
-                        <?php if ($cartCount > 0): ?>
-                            <span class="absolute top-0 right-0 -mt-1 -mr-1 flex items-center justify-center w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white">
-                                <?= $cartCount ?>
-                            </span>
-                        <?php endif; ?>
-                    </a>
-<?php endif; ?>
+                        <!-- Cart -->
+                        <a href="<?= BASE_URL ?>/cart" class="relative p-2 text-gray-500 hover:text-primary transition-colors hover:bg-green-50 rounded-full">
+                            <i class="fa-solid fa-cart-shopping text-xl"></i>
+                            <?php if ($cartCount > 0): ?>
+                                <span class="absolute top-0 right-0 -mt-1 -mr-1 flex items-center justify-center w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white">
+                                    <?= $cartCount ?>
+                                </span>
+                            <?php endif; ?>
+                        </a>
+                    <?php endif; ?>
 
                     <!-- Auth Buttons (Desktop) -->
                     <div class="hidden md:flex items-center gap-3">
@@ -98,8 +98,8 @@
         <!-- Mobile Menu dropdown -->
         <div style="background-color:#1e293b; border-top:1px solid #334155;" class="md:hidden hidden absolute w-full shadow-xl" id="mobile-menu">
             <div class="px-4 pt-2 pb-4 space-y-1">
-                <a href="<?= BASE_URL ?>/" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:text-primary hover:bg-green-50">Inicio</a>
-                <a href="<?= BASE_URL ?>/businesses" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:text-primary hover:bg-green-50">Comercios</a>
+                <a href="<?= BASE_URL ?>/" class="block px-3 py-3 rounded-md text-base font-medium text-gray-500 hover:text-primary hover:bg-green-50">Inicio</a>
+                <a href="<?= BASE_URL ?>/businesses" class="block px-3 py-3 rounded-md text-base font-medium text-gray-500 hover:text-primary hover:bg-green-50">Comercios</a>
 
                 <div class="border-t border-gray-200 pt-4 pb-2 mt-2">
                     <?php if ($userId): ?>
@@ -114,13 +114,20 @@
                             </div>
                         </div>
                         <div class="mt-3 space-y-1">
-                            <a href="<?= BASE_URL ?>/profile" class="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-primary hover:bg-gray-50">Tu Perfil</a>
-                            <a href="<?= BASE_URL ?>/orders" class="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-primary hover:bg-gray-50">Tus Pedidos</a>
+                            <?php if ($userRole !== 'ADMIN'): ?>
+                                <a href="<?= BASE_URL ?>/profile" class="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-primary hover:bg-gray-50">Tu Perfil</a>
+                            <?php endif; ?>
+
+                            <?php if ($userRole !== 'ADMIN' && $userRole !== 'BUSINESS'): ?>
+                                <a href="<?= BASE_URL ?>/orders" class="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-primary hover:bg-gray-50">Tus Pedidos</a>
+                            <?php endif; ?>
+
                             <?php if ($userRole === 'BUSINESS'): ?>
                                 <a href="<?= BASE_URL ?>/business/dashboard" class="block px-3 py-2 rounded-md text-base font-medium text-primary hover:bg-green-50">Panel de Comercio</a>
                             <?php elseif ($userRole === 'ADMIN'): ?>
                                 <a href="<?= BASE_URL ?>/admin/dashboard" class="block px-3 py-2 rounded-md text-base font-medium text-primary hover:bg-gray-50">Administración</a>
                             <?php endif; ?>
+
                             <a href="<?= BASE_URL ?>/logout" class="block px-3 py-2 rounded-md text-base font-medium text-red-500 hover:bg-red-50">Cerrar Sesión</a>
                         </div>
                     <?php else: ?>
@@ -154,6 +161,17 @@
                 });
             }
         });
+
+        // FUNCIÓN GLOBAL PARA ELEMENTOS EN DESARROLLO
+        function mostrarEnDesarrollo(funcionalidad = "Esta funcionalidad") {
+            Swal.fire({
+                icon: 'info',
+                title: 'Próxima implementación',
+                text: `${funcionalidad} estará disponible en la Fase 2 del despliegue (Mejoras futuras).`,
+                confirmButtonColor: '#22c55e', // Verde primary de Tailwind
+                confirmButtonText: 'Entendido'
+            });
+        }
     </script>
 
     <?php if ($flash): ?>
