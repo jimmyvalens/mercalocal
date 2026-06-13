@@ -87,13 +87,23 @@ $router->post('/business/setup', [BusinessDashboardController::class, 'saveSetup
 $router->get('/business/dashboard', [BusinessDashboardController::class, 'index']);
 $router->get('/admin/dashboard', [AdminController::class, 'index']);
 
-// ── Rutas de Admin: gestión de comercios ──────────────────
+// ── Rutas de Admin: gestión de comercios y productos delegados ──────────────────
+$router->get('/admin/test', [AdminController::class, 'adminTest']); // Evita modal de error
 $router->get('/admin/businesses', [AdminController::class, 'businesses']);
 $router->get('/admin/business/create', [AdminController::class, 'create']);
 $router->post('/admin/business/store', [AdminController::class, 'store']);
 $router->get('/admin/business/{id}/edit', [AdminController::class, 'edit']);
 $router->post('/admin/business/{id}/update', [AdminController::class, 'update']);
 $router->post('/admin/business/{id}/delete', [AdminController::class, 'delete']);
+
+// CRUD de Productos delegado en el Administrador (se declaran ANTES del detalle dinámico)
+$router->get('/admin/business/{business_id}/product/create', [AdminController::class, 'createProduct']);
+$router->post('/admin/business/{business_id}/product/store', [AdminController::class, 'storeProduct']);
+$router->get('/admin/product/{id}/edit', [AdminController::class, 'editProduct']);
+$router->post('/admin/product/{id}/update', [AdminController::class, 'updateProduct']);
+$router->post('/admin/product/{id}/delete', [AdminController::class, 'deleteProduct']);
+
+// Detalle del comercio (Ruta dinámica al final del bloque admin)
 $router->get('/admin/business/{id}', [AdminController::class, 'businessDetail']);
 
 // Productos (CRUD) dentro del panel de comercio

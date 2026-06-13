@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Core/Router.php — Enrutador HTTP de la aplicación
+// app/Core/Router.php — Enrutador HTTP de la aplicación
 // Mapea rutas (URL + método HTTP) a métodos de controladores.
 // Soporta parámetros dinámicos en la URL: /business/{id}
 // =========================================================
@@ -89,8 +89,7 @@ class Router
                 if (is_array($route['callback'])) {
                     $controller = new $route['callback'][0]();
                     call_user_func_array([$controller, $route['callback'][1]], $params);
-                }
-                else {
+                } else {
                     // También soporta funciones anónimas como callback
                     call_user_func_array($route['callback'], $params);
                 }
