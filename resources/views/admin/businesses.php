@@ -9,6 +9,7 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row gap-8">
 
+    <!-- Sidebar Admin -->
     <div class="w-full md:w-64 shrink-0">
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-24">
             <div class="flex items-center gap-3 mb-6 pb-6 border-b border-gray-100">
@@ -21,10 +22,10 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                 </div>
             </div>
             <nav class="space-y-2">
-                <a href="<?= BASE_URL ?>/admin/dashboard" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-primary font-medium rounded-xl transition-colors">
+                <a href="<?= BASE_URL ?>/admin/dashboard" class="flex items-center gap-3 px-4 py-3 bg-orange-50 text-primary font-bold rounded-xl">
                     <i class="fa-solid fa-chart-pie w-5"></i> Resumen
                 </a>
-                <a href="<?= BASE_URL ?>/admin/businesses" class="flex items-center gap-3 px-4 py-3 bg-orange-50 text-orange-600 font-bold rounded-xl">
+                <a href="<?= BASE_URL ?>/admin/businesses" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-primary font-medium rounded-xl transition-colors">
                     <i class="fa-solid fa-store w-5"></i> Comercios
                 </a>
                 <a href="<?= BASE_URL ?>/logout" class="flex items-center gap-3 px-4 py-3 mt-4 text-red-600 hover:bg-red-50 font-medium rounded-xl transition-colors">
@@ -37,7 +38,7 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
     <div class="flex-grow min-w-0">
 
         <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
-            <h1 class="text-3xl font-bold text-gray-900">📊 Gestión de Comercios</h1>
+            <h1 class="text-3xl font-bold text-gray-900">Gestión de Comercios</h1>
             <a href="<?= BASE_URL ?>/admin/business/create" class="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors shadow-sm font-medium">
                 <i class="fa-solid fa-plus"></i> Crear Comercio
             </a>
