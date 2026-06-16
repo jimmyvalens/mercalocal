@@ -1,15 +1,18 @@
 <?php
 // =========================================================
-// src/Controllers/BusinessController.php — Controlador público de comercios
-// Gestiona las páginas visibles para todos los visitantes:
-//   · Listado/catálogo de comercios con búsqueda y filtro por categoría
-//   · Ficha detallada de un comercio con sus productos, servicios y horarios
+// app/Controllers/BusinessController.php — Controlador público de comercios
 // =========================================================
 namespace App\Controllers;
 
 use App\Models\Business;
 use App\Models\Category;
 
+/**
+ * Clase BusinessController
+ *
+ * Controla el flujo público del catálogo de comercios, filtros de categorías,
+ * pasarela hacia la ficha detallada y los endpoints de la API en JSON.
+ */
 class BusinessController
 {
     /**
@@ -40,7 +43,6 @@ class BusinessController
             }
             require_once $viewPath;
         } catch (\Throwable $e) {
-            // Mostrar el error (útil en desarrollo; en producción se debería loguear y mostrar una página amigable)
             echo "Error: " . $e->getMessage() . " en " . $e->getFile() . " línea " . $e->getLine();
         }
     }
@@ -85,16 +87,16 @@ class BusinessController
             $businesses = Business::getAll($search, $categoryId, $perPage, $offset);
             $total = Business::countAll($search, $categoryId);
 
-            // Mapear los datos sin contaminar los modelos
+            // Mapear los datos sincronizados con las nuevas propiedades del modelo
             $businessesData = array_map(function ($business) {
                 return [
                     'id' => $business->id,
-                    'nombre' => $business->nombre,
-                    'descripcion' => $business->descripcion,
-                    'telefono' => $business->telefono,
+                    'nombre' => $business->name,
+                    'descripcion' => $business->description,
+                    'telefono' => $business->phone,
                     'email' => $business->email,
-                    'web' => $business->web,
-                    'categorias' => $business->categorias,
+                    'web' => $business->website,
+                    'categorias' => $business->categories,
                     'rating' => $business->getRating()
                 ];
             }, $businesses);
@@ -129,17 +131,17 @@ class BusinessController
                 return;
             }
 
-            // Preparar datos del comercio con relaciones sin contaminar el modelo
+            // Preparar datos del comercio mapeando al JSON esperado por el frontend
             $businessData = [
                 'id' => $business->id,
                 'user_id' => $business->user_id,
-                'nombre' => $business->nombre,
-                'descripcion' => $business->descripcion,
-                'telefono' => $business->telefono,
+                'nombre' => $business->name,
+                'descripcion' => $business->description,
+                'telefono' => $business->phone,
                 'email' => $business->email,
-                'web' => $business->web,
-                'activo' => $business->activo,
-                'categorias' => $business->categorias,
+                'web' => $business->website,
+                'activo' => $business->is_active,
+                'categorias' => $business->categories,
                 'created_at' => $business->created_at,
                 'updated_at' => $business->updated_at,
                 'rating' => $business->getRating(),

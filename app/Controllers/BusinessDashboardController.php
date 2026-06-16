@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Controllers/BusinessDashboardController.php
+// app/Controllers/BusinessDashboardController.php
 // Controlador del panel de control privado del comercio.
 // Gestiona tres flujos diferenciados:
 //   · index()     — Panel principal con estadísticas, pedidos y reservas
@@ -17,23 +17,15 @@ class BusinessDashboardController
 {
     public function __construct()
     {
+        // El middleware ya restringe de forma global el acceso a nivel de enrutamiento
         \App\Core\Middleware::requireRole('BUSINESS');
     }
 
     /**
      * Muestra el panel de control del comercio (GET /business/dashboard).
-     * Requiere rol BUSINESS. Si el comercio no tiene perfil creado,
-     * redirige al asistente de configuración inicial.
      */
     public function index()
     {
-        // Control de acceso: solo usuarios con rol BUSINESS
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-
         $userId = Session::get('user_id');
         $db = Database::getInstance()->getConnection();
 
@@ -64,13 +56,13 @@ class BusinessDashboardController
         $stats['services'] = (int)$stmt->fetch()['total'];
 
         // Total de reservas activas (excluye canceladas)
-        $stmt = $db->prepare("SELECT COUNT(*) as total FROM reservation WHERE business_id = ? AND estado != 'CANCELADA'");
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM reservation WHERE business_id = ? AND status != 'CANCELLED'");
         $stmt->execute([$bid]);
         $stats['reservations'] = (int)$stmt->fetch()['total'];
 
         // ── Últimos 5 pedidos recibidos que incluyan productos de este comercio ──
         $stmt = $db->prepare(
-            "SELECT p.id, p.total, p.estado, p.created_at, u.nombre as client_name
+            "SELECT p.id, p.total, p.status, p.created_at, u.first_name as client_name
              FROM purchase p
              JOIN order_item oi ON oi.purchase_id = p.id
              JOIN product pr    ON pr.id = oi.product_id
@@ -83,14 +75,14 @@ class BusinessDashboardController
 
         // ── Próximas 10 reservas pendientes desde hoy ──
         $stmt = $db->prepare(
-            "SELECT r.*, u.nombre as client_name, u.telefono as client_phone,
-                    s.nombre as service_name
+            "SELECT r.*, u.first_name as client_name, u.phone as client_phone,
+                    s.name as service_name
              FROM reservation r
              JOIN user u ON u.id = r.user_id
              LEFT JOIN reservation_item ri ON ri.reservation_id = r.id
              LEFT JOIN service s ON s.id = ri.service_id
-             WHERE r.business_id = ? AND r.fecha >= CURDATE() AND r.estado != 'CANCELADA'
-             ORDER BY r.fecha, r.hora_inicio LIMIT 10"
+             WHERE r.business_id = ? AND r.date >= CURDATE() AND r.status != 'CANCELLED'
+             ORDER BY r.date, r.start_time LIMIT 10"
         );
         $stmt->execute([$bid]);
         $upcomingReservations = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -104,11 +96,6 @@ class BusinessDashboardController
      */
     public function orders()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -119,7 +106,7 @@ class BusinessDashboardController
         }
 
         $stmt = $db->prepare(
-            "SELECT p.id, p.total, p.estado, p.created_at, u.nombre as client_name
+            "SELECT p.id, p.total, p.status, p.created_at, u.first_name as client_name
              FROM purchase p
              JOIN order_item oi ON oi.purchase_id = p.id
              JOIN product pr    ON pr.id = oi.product_id
@@ -134,23 +121,13 @@ class BusinessDashboardController
 
     /**
      * Muestra el formulario de configuración inicial del comercio (GET /business/setup).
-     * Se muestra automáticamente cuando un comercio recién registrado
-     * todavía no tiene perfil creado en la tabla `business`.
-     * Si ya tiene perfil, se redirige directamente al panel.
      */
     public function setup()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-
-        // Comprobar si ya tiene un perfil creado para evitar duplicados
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
         if ($stmt->fetch()) {
-            // Ya tiene perfil → ir al panel principal
             header('Location: ' . BASE_URL . '/business/dashboard');
             exit;
         }
@@ -162,11 +139,6 @@ class BusinessDashboardController
 
     public function servicesIndex()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -181,10 +153,6 @@ class BusinessDashboardController
 
     public function servicesCreate()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -193,16 +161,20 @@ class BusinessDashboardController
             header('Location: ' . BASE_URL . '/business/setup');
             exit;
         }
-        $cats = $db->query('SELECT id,nombre FROM category ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC);
+        $cats = $db->query('SELECT id, name FROM category ORDER BY name')->fetchAll(PDO::FETCH_ASSOC);
         require_once ROOT_DIR . '/resources/views/business/services/form.php';
     }
 
     public function servicesStore()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . BASE_URL . '/business/dashboard/services/create');
             exit;
         }
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -221,18 +193,19 @@ class BusinessDashboardController
                 exit;
             }
         }
-        // Preparar datos
+
+        // Estructura de propiedades del modelo Service en inglés
         $data = [
             'business_id' => $business['id'],
             'category_id' => $_POST['category_id'] ?? null,
-            'nombre' => trim($_POST['nombre']),
-            'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'duracion' => intval($_POST['duracion'] ?? 0),
-            'precio' => floatval($_POST['precio'] ?? 0),
-            'activo' => isset($_POST['activo']) ? 1 : 0,
+            'name' => trim($_POST['nombre']),
+            'description' => trim($_POST['descripcion'] ?? ''),
+            'duration' => intval($_POST['duracion'] ?? 0),
+            'price' => floatval($_POST['precio'] ?? 0),
+            'is_active' => isset($_POST['activo']) ? 1 : 0,
         ];
         try {
-            $id = \App\Models\Service::create($data);
+            \App\Models\Service::create($data);
             Session::setFlash('success', 'Servicio creado exitosamente.');
             header('Location: ' . BASE_URL . '/business/dashboard/services');
             exit;
@@ -243,12 +216,8 @@ class BusinessDashboardController
         }
     }
 
-    public function servicesEdit($id)
+    public function servicesEdit(int $id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -263,16 +232,20 @@ class BusinessDashboardController
             header('Location: ' . BASE_URL . '/business/dashboard/services');
             exit;
         }
-        $cats = $db->query('SELECT id,nombre FROM category ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC);
+        $cats = $db->query('SELECT id, name FROM category ORDER BY name')->fetchAll(PDO::FETCH_ASSOC);
         require_once ROOT_DIR . '/resources/views/business/services/form.php';
     }
 
-    public function servicesUpdate($id)
+    public function servicesUpdate(int $id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . BASE_URL . '/business/dashboard/services/' . $id . '/edit');
             exit;
         }
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -288,23 +261,23 @@ class BusinessDashboardController
             exit;
         }
 
-// Validar campos obligatorios
-$required = ['nombre', 'descripcion', 'duracion', 'precio'];
-foreach ($required as $field) {
-    if (empty($_POST[$field] ?? null)) {
-        Session::setFlash('error', 'Campo obligatorio faltante: ' . ucfirst($field));
-        header('Location: ' . BASE_URL . '/business/dashboard/services/' . $id . '/edit');
-        exit;
-    }
-}
-$data = [
-    'category_id' => $_POST['category_id'] ?? null,
-    'nombre' => trim($_POST['nombre']),
-    'descripcion' => trim($_POST['descripcion']),
-    'duracion' => intval($_POST['duracion']),
-    'precio' => floatval($_POST['precio']),
-    'activo' => isset($_POST['activo']) ? 1 : 0,
-];
+        $required = ['nombre', 'descripcion', 'duracion', 'precio'];
+        foreach ($required as $field) {
+            if (empty($_POST[$field] ?? null)) {
+                Session::setFlash('error', 'Campo obligatorio faltante: ' . ucfirst($field));
+                header('Location: ' . BASE_URL . '/business/dashboard/services/' . $id . '/edit');
+                exit;
+            }
+        }
+
+        $data = [
+            'category_id' => $_POST['category_id'] ?? null,
+            'name' => trim($_POST['nombre']),
+            'description' => trim($_POST['descripcion']),
+            'duration' => intval($_POST['duracion']),
+            'price' => floatval($_POST['precio']),
+            'is_active' => isset($_POST['activo']) ? 1 : 0,
+        ];
         try {
             \App\Models\Service::update($id, $data);
             Session::setFlash('success', 'Servicio actualizado.');
@@ -317,12 +290,16 @@ $data = [
         }
     }
 
-    public function servicesDelete($id)
+    public function servicesDelete(int $id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
+        // Protección CSRF (Recomendado enviar mediante formulario POST o Ajax con Token)
+        $token = $_POST['csrf_token'] ?? ($_GET['csrf_token'] ?? '');
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token de seguridad expirado.');
+            header('Location: ' . BASE_URL . '/business/dashboard/services');
             exit;
         }
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -351,11 +328,6 @@ $data = [
 
     public function schedulesIndex()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -370,10 +342,14 @@ $data = [
 
     public function schedulesStore()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida.');
+            header('Location: ' . BASE_URL . '/business/dashboard/schedules');
             exit;
         }
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -382,11 +358,12 @@ $data = [
             header('Location: ' . BASE_URL . '/business/setup');
             exit;
         }
+
         $data = [
             'business_id' => $business['id'],
-            'dia_semana' => intval($_POST['dia_semana'] ?? 0),
-            'hora_apertura' => $_POST['hora_apertura'] ?? '09:00',
-            'hora_cierre' => $_POST['hora_cierre'] ?? '18:00',
+            'day_of_week' => intval($_POST['dia_semana'] ?? 0),
+            'open_time' => $_POST['hora_apertura'] ?? '09:00',
+            'close_time' => $_POST['hora_cierre'] ?? '18:00',
         ];
         try {
             \App\Models\Schedule::create($data);
@@ -398,12 +375,16 @@ $data = [
         exit;
     }
 
-    public function schedulesDelete($id)
+    public function schedulesDelete(int $id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? ($_GET['csrf_token'] ?? '');
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida.');
+            header('Location: ' . BASE_URL . '/business/dashboard/schedules');
             exit;
         }
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -429,34 +410,37 @@ $data = [
      */
     public function saveSetup()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . BASE_URL . '/business/setup');
             exit;
         }
 
         // Recoger y sanear los datos del formulario
-        $nombre = trim($_POST['nombre'] ?? '');
-        $descripcion = trim($_POST['descripcion'] ?? '');
-        $telefono = trim($_POST['telefono'] ?? '');
+        $name = trim($_POST['nombre'] ?? '');
+        $description = trim($_POST['descripcion'] ?? '');
+        $phone = trim($_POST['telefono'] ?? '');
         $email = trim($_POST['email'] ?? '');
-        $web = trim($_POST['web'] ?? '') ?: null; // Opcional; si está vacío se guarda como NULL
+        $website = trim($_POST['web'] ?? '') ?: null; // Opcional; si está vacío se guarda como NULL
 
         // Comprobar campos obligatorios
-        if (empty($nombre) || empty($descripcion) || empty($telefono) || empty($email)) {
+        if (empty($name) || empty($description) || empty($phone) || empty($email)) {
             Session::setFlash('error', 'Por favor rellena todos los campos obligatorios.');
             header('Location: ' . BASE_URL . '/business/setup');
             exit;
         }
 
-        // Insertar el nuevo comercio en la BD con estado activo
+        // Insertar el nuevo comercio en la BD con estructura unificada
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare(
-            'INSERT INTO business (user_id, nombre, descripcion, telefono, email, web, activo)
+            'INSERT INTO business (user_id, name, description, phone, email, website, is_active)
              VALUES (?, ?, ?, ?, ?, ?, 1)'
         );
-        $stmt->execute([Session::get('user_id'), $nombre, $descripcion, $telefono, $email, $web]);
+        $stmt->execute([Session::get('user_id'), $name, $description, $phone, $email, $website]);
 
-        Session::setFlash('success', '¡Tu comercio "' . $nombre . '" está listo en Mercalocal!');
+        Session::setFlash('success', '¡Tu comercio "' . $name . '" está listo en Mercalocal!');
         header('Location: ' . BASE_URL . '/business/dashboard');
         exit;
     }
@@ -466,11 +450,6 @@ $data = [
      */
     public function productsIndex()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -485,10 +464,6 @@ $data = [
 
     public function productsCreate()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -497,17 +472,21 @@ $data = [
             header('Location: ' . BASE_URL . '/business/setup');
             exit;
         }
-        // cargar categorías para el selector
-        $cats = $db->query('SELECT id,nombre FROM category ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC);
+        // Cargar categorías para el selector
+        $cats = $db->query('SELECT id, name FROM category ORDER BY name')->fetchAll(PDO::FETCH_ASSOC);
         require_once ROOT_DIR . '/resources/views/business/products/form.php';
     }
 
     public function productsStore()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . BASE_URL . '/business/dashboard/products/create');
             exit;
         }
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -517,12 +496,12 @@ $data = [
             exit;
         }
 
-        $imagenNombre = null;
+        $imageName = null;
 
         // ── Procesar carga de imagen ──
         if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['imagen'];
-            $nombreProducto = preg_replace('/[^a-z0-9_-]/i', '', $_POST['nombre'] ?? 'producto');
+            $productSlug = preg_replace('/[^a-z0-9_-]/i', '', $_POST['nombre'] ?? 'product');
 
             // Validar tipo de archivo
             $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -543,7 +522,7 @@ $data = [
                 exit;
             }
 
-            // Generar nombre único con timestamp
+            // Generar nombre único estructurado
             $ext = match ($mimeType) {
                 'image/jpeg' => 'jpg',
                 'image/png' => 'png',
@@ -551,22 +530,21 @@ $data = [
                 'image/webp' => 'webp',
                 default => 'jpg'
             };
-            $imagenNombre = 'producto_' . $business['id'] . '_' . time() . '.' . $ext;
+            $imageName = 'product_' . $productSlug . '_' . $business['id'] . '_' . time() . '.' . $ext;
             $uploadDir = ROOT_DIR . '/public/img/products/';
 
-            // Crear directorio si no existe
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
             }
 
-            $uploadPath = $uploadDir . $imagenNombre;
+            $uploadPath = $uploadDir . $imageName;
 
             // Mover archivo y comprimir
             if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
                 try {
                     \App\Core\ImageHelper::compress($uploadPath, $uploadPath, 80, 1200, 1200);
                 } catch (\Throwable $e) {
-                    // Si falla la compresión, continuamos con la imagen original
+                    // Si falla la compresión, se mantiene la original
                 }
             } else {
                 Session::setFlash('error', 'Error al subir la imagen.');
@@ -578,16 +556,16 @@ $data = [
         $data = [
             'business_id' => $business['id'],
             'category_id' => $_POST['category_id'] ?? null,
-            'nombre' => trim($_POST['nombre'] ?? ''),
-            'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'precio' => floatval($_POST['precio'] ?? 0),
+            'name' => trim($_POST['nombre'] ?? ''),
+            'description' => trim($_POST['descripcion'] ?? ''),
+            'price' => floatval($_POST['precio'] ?? 0),
             'stock' => intval($_POST['stock'] ?? 0),
-            'imagen' => $imagenNombre,
-            'activo' => isset($_POST['activo']) ? 1 : 0,
+            'image' => $imageName,
+            'is_active' => isset($_POST['activo']) ? 1 : 0,
         ];
 
         try {
-            $id = \App\Models\Product::create($data);
+            \App\Models\Product::create($data);
             Session::setFlash('success', 'Producto creado exitosamente.');
             header('Location: ' . BASE_URL . '/business/dashboard/products');
             exit;
@@ -598,12 +576,8 @@ $data = [
         }
     }
 
-    public function productsEdit($id)
+    public function productsEdit(int $id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -618,16 +592,20 @@ $data = [
             header('Location: ' . BASE_URL . '/business/dashboard/products');
             exit;
         }
-        $cats = $db->query('SELECT id,nombre FROM category ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC);
+        $cats = $db->query('SELECT id, name FROM category ORDER BY name')->fetchAll(PDO::FETCH_ASSOC);
         require_once ROOT_DIR . '/resources/views/business/products/form.php';
     }
 
-    public function productsUpdate($id)
+    public function productsUpdate(int $id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . BASE_URL . '/business/dashboard/products/' . $id . '/edit');
             exit;
         }
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -643,11 +621,12 @@ $data = [
             exit;
         }
 
-        $imagenNombre = $product->imagen; // Mantener imagen actual por defecto
+        $imageName = $product->image_path; // Mantener imagen actual por defecto
 
         // ── Procesar nueva imagen si se sube ──
         if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['imagen'];
+            $productSlug = preg_replace('/[^a-z0-9_-]/i', '', $_POST['nombre'] ?? 'product');
 
             // Validar tipo de archivo
             $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -669,14 +648,14 @@ $data = [
             }
 
             // Eliminar imagen anterior si existe
-            if ($product->imagen) {
-                $oldPath = ROOT_DIR . '/public/img/products/' . $product->imagen;
+            if ($product->image_path) {
+                $oldPath = ROOT_DIR . '/public/img/products/' . $product->image_path;
                 if (file_exists($oldPath)) {
                     unlink($oldPath);
                 }
             }
 
-            // Generar nombre único con timestamp
+            // Generar nombre único estructurado
             $ext = match ($mimeType) {
                 'image/jpeg' => 'jpg',
                 'image/png' => 'png',
@@ -684,21 +663,20 @@ $data = [
                 'image/webp' => 'webp',
                 default => 'jpg'
             };
-            $imagenNombre = 'producto_' . $business['id'] . '_' . time() . '.' . $ext;
+            $imageName = 'product_' . $productSlug . '_' . $business['id'] . '_' . time() . '.' . $ext;
             $uploadDir = ROOT_DIR . '/public/img/products/';
 
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
             }
 
-            $uploadPath = $uploadDir . $imagenNombre;
+            $uploadPath = $uploadDir . $imageName;
 
-            // Mover archivo y comprimir
             if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
                 try {
                     \App\Core\ImageHelper::compress($uploadPath, $uploadPath, 80, 1200, 1200);
                 } catch (\Throwable $e) {
-                    // Si falla la compresión, continuamos con la imagen original
+                    // Si falla la compresión se mantiene la original
                 }
             } else {
                 Session::setFlash('error', 'Error al subir la imagen.');
@@ -709,12 +687,12 @@ $data = [
 
         $data = [
             'category_id' => $_POST['category_id'] ?? null,
-            'nombre' => trim($_POST['nombre'] ?? ''),
-            'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'precio' => floatval($_POST['precio'] ?? 0),
+            'name' => trim($_POST['nombre'] ?? ''),
+            'description' => trim($_POST['descripcion'] ?? ''),
+            'price' => floatval($_POST['precio'] ?? 0),
             'stock' => intval($_POST['stock'] ?? 0),
-            'imagen' => $imagenNombre,
-            'activo' => isset($_POST['activo']) ? 1 : 0,
+            'image' => $imageName,
+            'is_active' => isset($_POST['activo']) ? 1 : 0,
         ];
 
         try {
@@ -731,10 +709,14 @@ $data = [
 
     public function productsDelete($id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? ($_GET['csrf_token'] ?? '');
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . BASE_URL . '/business/dashboard/products');
             exit;
         }
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -750,9 +732,9 @@ $data = [
             exit;
         }
         try {
-            // Eliminar imagen si existe
-            if ($product->imagen) {
-                $imagePath = ROOT_DIR . '/public/img/products/' . $product->imagen;
+            // Eliminar imagen física del servidor si existe
+            if ($product->image_path) {
+                $imagePath = ROOT_DIR . '/public/img/products/' . $product->image_path;
                 if (file_exists($imagePath)) {
                     unlink($imagePath);
                 }
@@ -774,11 +756,6 @@ $data = [
      */
     public function settings()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT * FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -796,10 +773,14 @@ $data = [
      */
     public function updateSettings()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . BASE_URL . '/business/dashboard/settings');
             exit;
         }
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
@@ -810,28 +791,28 @@ $data = [
         }
 
         $data = [
-            'nombre' => trim($_POST['nombre'] ?? ''),
-            'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'telefono' => trim($_POST['telefono'] ?? ''),
+            'name' => trim($_POST['nombre'] ?? ''),
+            'description' => trim($_POST['descripcion'] ?? ''),
+            'phone' => trim($_POST['telefono'] ?? ''),
             'email' => trim($_POST['email'] ?? ''),
-            'web' => trim($_POST['web'] ?? ''),
+            'website' => trim($_POST['web'] ?? ''),
         ];
 
-        if (empty($data['nombre']) || empty($data['descripcion']) || empty($data['telefono']) || empty($data['email'])) {
+        if (empty($data['name']) || empty($data['description']) || empty($data['phone']) || empty($data['email'])) {
             Session::setFlash('error', 'Los campos nombre, descripción, teléfono y email son obligatorios.');
             header('Location: ' . BASE_URL . '/business/dashboard/settings');
             exit;
         }
 
         try {
-            $sql = "UPDATE business SET nombre = ?, descripcion = ?, telefono = ?, email = ?, web = ?, updated_at = NOW() WHERE id = ?";
+            $sql = "UPDATE business SET name = ?, description = ?, phone = ?, email = ?, website = ?, updated_at = NOW() WHERE id = ?";
             $stmt = $db->prepare($sql);
             $stmt->execute([
-                $data['nombre'],
-                $data['descripcion'],
-                $data['telefono'],
+                $data['name'],
+                $data['description'],
+                $data['phone'],
                 $data['email'],
-                $data['web'],
+                $data['website'],
                 $business['id'],
             ]);
             Session::setFlash('success', 'Perfil actualizado correctamente.');

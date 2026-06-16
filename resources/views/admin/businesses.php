@@ -50,7 +50,7 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
             </div>
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center hover:shadow-md transition-shadow">
                 <p class="text-sm font-medium text-gray-500 mb-2">Comercios Activos</p>
-                <p class="text-3xl font-bold text-green-600"><?= count(array_filter($businesses, fn($b) => $b['activo'] == 1)) ?></p>
+                <p class="text-3xl font-bold text-green-600"><?= count(array_filter($businesses, fn($b) => ($b['status'] ?? '') === 'ACTIVE')) ?></p>
             </div>
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center hover:shadow-md transition-shadow">
                 <p class="text-sm font-medium text-gray-500 mb-2">Productos Totales</p>
@@ -62,27 +62,39 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
             </div>
         </div>
 
-        <form method="GET" action="<?= BASE_URL ?>/admin/businesses" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-8 flex flex-col lg:flex-row gap-4 items-end">
-            <div class="flex-1 w-full">
+        <form method="GET" action="<?= BASE_URL ?>/admin/businesses" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+
+            <div class="lg:col-span-4 w-full">
                 <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Buscar comercio o propietario</label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fa-solid fa-search text-gray-400"></i>
                     </div>
-                    <input type="text" name="search" id="search" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>" placeholder="Nombre, email, teléfono..." class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors">
+                    <input type="text" name="search" id="search" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>" placeholder="Nombre, email, teléfono..." class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors">
                 </div>
             </div>
 
-            <div class="w-full lg:w-48">
+            <div class="lg:col-span-2 w-full">
                 <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
                 <select name="status" id="status" class="block w-full py-2 pl-3 pr-10 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl transition-colors">
                     <option value="">Todos</option>
-                    <option value="active" <?= ($_GET['status'] ?? '') === 'active' ? 'selected' : '' ?>>Activos</option>
-                    <option value="inactive" <?= ($_GET['status'] ?? '') === 'inactive' ? 'selected' : '' ?>>Inactivos</option>
+                    <option value="PENDING" <?= ($_GET['status'] ?? '') === 'PENDING' ? 'selected' : '' ?>>Pendientes</option>
+                    <option value="ACTIVE" <?= ($_GET['status'] ?? '') === 'ACTIVE' ? 'selected' : '' ?>>Activos</option>
+                    <option value="SUSPENDED" <?= ($_GET['status'] ?? '') === 'SUSPENDED' ? 'selected' : '' ?>>Suspendidos</option>
                 </select>
             </div>
 
-            <div class="w-full lg:w-48">
+            <div class="lg:col-span-2 w-full">
+                <label for="type" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Negocio</label>
+                <select name="type" id="type" class="block w-full py-2 pl-3 pr-10 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl transition-colors">
+                    <option value="">Todos</option>
+                    <option value="PRODUCTS" <?= ($_GET['type'] ?? '') === 'PRODUCTS' ? 'selected' : '' ?>>Productos</option>
+                    <option value="SERVICES" <?= ($_GET['type'] ?? '') === 'SERVICES' ? 'selected' : '' ?>>Servicios</option>
+                    <option value="HYBRID" <?= ($_GET['type'] ?? '') === 'HYBRID' ? 'selected' : '' ?>>Híbrido (Ambos)</option>
+                </select>
+            </div>
+
+            <div class="lg:col-span-2 w-full">
                 <label for="category" class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
                 <select name="category" id="category" class="block w-full py-2 pl-3 pr-10 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl transition-colors">
                     <option value="">Todas</option>
@@ -95,12 +107,12 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                 </select>
             </div>
 
-            <div class="flex gap-2 w-full lg:w-auto">
-                <button type="submit" class="w-full lg:w-auto bg-gray-800 text-white px-5 py-2 rounded-xl hover:bg-gray-900 transition-colors font-medium">
+            <div class="lg:col-span-2 flex gap-2 w-full">
+                <button type="submit" class="flex-1 bg-gray-800 text-white py-2 rounded-xl hover:bg-gray-900 transition-colors font-medium text-sm">
                     Filtrar
                 </button>
-                <?php if (!empty($_GET['search']) || !empty($_GET['status']) || !empty($_GET['category'])): ?>
-                    <a href="<?= BASE_URL ?>/admin/businesses" class="w-full lg:w-auto text-center bg-gray-100 text-gray-600 px-5 py-2 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                <?php if (!empty($_GET['search']) || !empty($_GET['status']) || !empty($_GET['type']) || !empty($_GET['category'])): ?>
+                    <a href="<?= BASE_URL ?>/admin/businesses" class="flex-1 text-center bg-gray-100 text-gray-600 py-2 rounded-xl hover:bg-gray-200 transition-colors font-medium text-sm block">
                         Limpiar
                     </a>
                 <?php endif; ?>
@@ -134,16 +146,31 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                                         <span class="font-bold text-gray-900 block">
                                             <?= htmlspecialchars($business['nombre']) ?>
                                         </span>
-                                        <span class="text-xs text-gray-500">ID: <?= $business['id'] ?></span>
+                                        <div class="flex items-center gap-2 mt-1">
+                                            <span class="text-xs text-gray-400">ID: <?= $business['id'] ?></span>
+
+                                            <?php
+                                            $type = $business['business_type'] ?? 'PRODUCTS';
+                                            if ($type === 'PRODUCTS'): ?>
+                                                <span class="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-semibold border border-blue-100">Tienda</span>
+                                            <?php elseif ($type === 'SERVICES'): ?>
+                                                <span class="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-semibold border border-purple-100">Servicios</span>
+                                            <?php else: ?>
+                                                <span class="text-[10px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded font-semibold border border-orange-100">Mixto</span>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
-                                    <td class="px-6 py-4 text-gray-600 font-medium">
+
+                                    <td class="px-6 py-4 text-gray-600 font-medium text-sm">
                                         <?= htmlspecialchars($business['owner_name']) ?>
                                     </td>
+
                                     <td class="px-6 py-4 text-gray-600 text-sm">
                                         <div class="flex flex-col">
                                             <span><?= htmlspecialchars($business['owner_email']) ?></span>
                                         </div>
                                     </td>
+
                                     <td class="px-6 py-4 text-center">
                                         <div class="flex flex-col gap-1 items-center">
                                             <span class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-md text-xs font-medium border border-blue-100" title="Productos">
@@ -154,17 +181,25 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                                             </span>
                                         </div>
                                     </td>
+
                                     <td class="px-6 py-4 text-center">
-                                        <?php if ($business['activo'] == 1): ?>
+                                        <?php
+                                        $status = $business['status'] ?? 'PENDING';
+                                        if ($status === 'ACTIVE'): ?>
                                             <span class="inline-flex items-center gap-1 bg-green-50 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Activo
                                             </span>
+                                        <?php elseif ($status === 'PENDING'): ?>
+                                            <span class="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-bold border border-amber-200">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Pendiente
+                                            </span>
                                         <?php else: ?>
                                             <span class="inline-flex items-center gap-1 bg-red-50 text-red-700 px-3 py-1 rounded-full text-xs font-bold border border-red-200">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Inactivo
+                                                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Suspendido
                                             </span>
                                         <?php endif; ?>
                                     </td>
+
                                     <td class="px-6 py-4 text-center">
                                         <div class="flex items-center justify-center gap-4">
                                             <a href="<?= BASE_URL ?>/admin/business/<?= $business['id'] ?>"
@@ -175,8 +210,8 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                                                 class="inline-flex items-center justify-center w-8 h-8 bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white rounded-lg transition-colors shadow-sm" title="Editar">
                                                 <i class="fa-solid fa-pen-to-square"></i>
                                             </a>
-                                            <form action="<?= BASE_URL ?>/admin/business/<?= $business['id'] ?>/delete" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas eliminar (desactivar) este comercio?');">
-                                                <button type="submit" class="inline-flex items-center justify-center w-8 h-8 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition-colors shadow-sm" title="Eliminar">
+                                            <form action="<?= BASE_URL ?>/admin/business/<?= $business['id'] ?>/delete" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas deshabilitar este comercio?');">
+                                                <button type="submit" class="inline-flex items-center justify-center w-8 h-8 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition-colors shadow-sm" title="Desactivar">
                                                     <i class="fa-solid fa-trash"></i>
                                                 </button>
                                             </form>

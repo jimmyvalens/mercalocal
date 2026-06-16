@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Core/Session.php — Gestión de la sesión de usuario
+// app/Core/Session.php — Gestión de la sesión de usuario
 // Centraliza todas las operaciones con $_SESSION para
 // facilitar el mantenimiento y evitar accesos directos
 // a la superglobal desde los controladores y vistas.
@@ -114,5 +114,30 @@ class Session
             return false;
         }
         return hash_equals($_SESSION['csrf_token'], $token);
+    }
+
+    /**
+     * Regenera el ID de la sesión actual de forma segura para evitar
+     * ataques de fijación de sesión (Session Fixation).
+     * * @param bool $deleteOldSession Elimina el archivo de sesión antiguo si es true
+     * @return bool
+     */
+    public static function regenerateId(bool $deleteOldSession = true): bool
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            return session_regenerate_id($deleteOldSession);
+        }
+        return false;
+    }
+
+    /**
+     * Comprueba si existe un mensaje flash específico en la sesión.
+     *
+     * @param string $key Clave del mensaje flash a verificar (ej. 'error', 'success')
+     * @return bool True si el mensaje existe, false en caso contrario
+     */
+    public static function hasFlash(string $key): bool
+    {
+        return isset($_SESSION['flash'][$key]);
     }
 }

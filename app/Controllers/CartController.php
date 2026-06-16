@@ -1,8 +1,9 @@
 <?php
+
 namespace App\Controllers;
 
 // =========================================================
-// src/Controllers/CartController.php — Controlador del carrito de compra
+// app/Controllers/CartController.php — Controlador del carrito de compra
 // Gestiona todo el ciclo de compra:
 //   · Ver el carrito de la sesión
 //   · Añadir y eliminar productos
@@ -32,6 +33,7 @@ class CartController
             header('Location: ' . BASE_URL . '/');
             exit;
         }
+
         if (!Session::get('user_id')) {
             Session::setFlash('error', 'Debes iniciar sesión para ver tu carrito.');
             header('Location: ' . BASE_URL . '/login');
@@ -39,8 +41,9 @@ class CartController
         }
 
         $cart = Session::get('cart', []);
-        // Calcular el importe total sumando precio × cantidad de cada línea
-        $total = array_sum(array_map(fn($i) => $i['precio'] * $i['cantidad'], $cart));
+
+        // Calcular el importe total sumando price × quantity de cada línea (en inglés)
+        $total = array_sum(array_map(fn($item) => $item['price'] * $item['quantity'], $cart));
 
         require_once ROOT_DIR . '/resources/views/user/cart.php';
     }
@@ -52,6 +55,13 @@ class CartController
      */
     public function add()
     {
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? BASE_URL . '/'));
+            exit;
+        }
 
         // Bloquear acceso al carrito para comercios
         if (Session::get('user_role') === 'BUSINESS') {
@@ -59,6 +69,7 @@ class CartController
             header('Location: ' . BASE_URL . '/');
             exit;
         }
+
         // Verificar que el usuario está autenticado
         if (!Session::get('user_id')) {
             Session::setFlash('error', 'Debes iniciar sesión para añadir productos.');
@@ -67,7 +78,7 @@ class CartController
         }
 
         $productId = (int)($_POST['product_id'] ?? 0);
-        $cantidad = max(1, (int)($_POST['cantidad'] ?? 1)); // Mínimo 1 unidad
+        $quantity = max(1, (int)($_POST['cantidad'] ?? 1)); // Mínimo 1 unidad
 
         if (!$productId) {
             Session::setFlash('error', 'Datos inválidos.');
@@ -77,7 +88,7 @@ class CartController
 
         // Verificar que el producto existe y tiene stock
         $product = Product::findById($productId);
-        if (!$product || $product->stock < $cantidad) {
+        if (!$product || $product->stock < $quantity) {
             Session::setFlash('error', 'Producto no disponible en la cantidad solicitada.');
             header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? BASE_URL . '/'));
             exit;
@@ -85,21 +96,21 @@ class CartController
 
         $cart = Session::get('cart', []);
 
-        // Si ya estaba en el carrito, sumar la cantidad; si no, crear nueva línea
+        // Si ya estaba en el carrito, sumar la cantidad; si no, crear nueva línea mapeada al inglés
         if (isset($cart[$productId])) {
-            $cart[$productId]['cantidad'] += $cantidad;
+            $cart[$productId]['quantity'] += $quantity;
         } else {
             $cart[$productId] = [
                 'id' => $product->id,
-                'nombre' => $product->nombre,
-                'precio' => $product->precio,
-                'cantidad' => $cantidad,
+                'name' => $product->name,
+                'price' => $product->price,
+                'quantity' => $quantity,
                 'business_id' => $product->business_id, // Necesario para notificar al comercio
             ];
         }
 
         Session::set('cart', $cart);
-        Session::setFlash('success', '✅ ' . $product->nombre . ' añadido al carrito.');
+        Session::setFlash('success', '✅ ' . $product->name . ' añadido al carrito.');
 
         // Volver a la página anterior (ficha del comercio)
         header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? BASE_URL . '/'));
@@ -108,16 +119,24 @@ class CartController
 
     /**
      * Elimina un producto del carrito (POST /cart/remove).
-     * La vista envía el campo con name="product_id".
      */
     public function remove()
     {
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . BASE_URL . '/cart');
+            exit;
+        }
+
         // Bloquear acceso al carrito para comercios
         if (Session::get('user_role') === 'BUSINESS') {
             Session::setFlash('error', 'Los comercios no pueden usar el carrito.');
             header('Location: ' . BASE_URL . '/');
             exit;
         }
+
         $productId = (int)($_POST['product_id'] ?? 0);
 
         if ($productId) {
@@ -134,34 +153,41 @@ class CartController
     /**
      * Actualiza la cantidad de un producto en el carrito (POST /cart/update).
      * Recibe 'product_id' y 'accion' ('sumar' o 'restar').
-     * Si la cantidad llega a 0 o menos, elimina el producto del carrito.
      */
     public function update()
     {
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . BASE_URL . '/cart');
+            exit;
+        }
+
         if (!Session::get('user_id')) {
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
 
         $productId = (int)($_POST['product_id'] ?? 0);
-        $accion = $_POST['accion'] ?? '';
+        $action = $_POST['accion'] ?? '';
 
-        if ($productId && in_array($accion, ['sumar', 'restar'])) {
+        if ($productId && in_array($action, ['sumar', 'restar'])) {
             $cart = Session::get('cart', []);
 
             if (isset($cart[$productId])) {
-                if ($accion === 'sumar') {
+                if ($action === 'sumar') {
                     // Verificar stock antes de sumar
                     $product = Product::findById($productId);
-                    if ($product && $cart[$productId]['cantidad'] < $product->stock) {
-                        $cart[$productId]['cantidad']++;
+                    if ($product && $cart[$productId]['quantity'] < $product->stock) {
+                        $cart[$productId]['quantity']++;
                     } else {
                         Session::setFlash('error', 'No hay más stock disponible.');
                     }
                 } else {
-                    $cart[$productId]['cantidad']--;
+                    $cart[$productId]['quantity']--;
                     // Si llega a 0, eliminar del carrito
-                    if ($cart[$productId]['cantidad'] <= 0) {
+                    if ($cart[$productId]['quantity'] <= 0) {
                         unset($cart[$productId]);
                         Session::setFlash('success', 'Producto eliminado del carrito.');
                     }
@@ -179,6 +205,14 @@ class CartController
      */
     public function clear()
     {
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . BASE_URL . '/cart');
+            exit;
+        }
+
         if (!Session::get('user_id')) {
             header('Location: ' . BASE_URL . '/login');
             exit;
@@ -191,16 +225,7 @@ class CartController
     }
 
     /**
-     * Procesa el pago del carrito (POST /checkout).
-     * Ejecuta las siguientes operaciones en una transacción de BD:
-     *   1. Crea el registro de compra (tabla `purchase`)
-     *   2. Inserta cada línea del pedido (tabla `order_item`)
-     *   3. Descuenta el stock de cada producto (tabla `product`)
-     * Si cualquier operación falla, hace rollback para mantener la consistencia.
-     * Tras el éxito, envía emails de confirmación al cliente y a cada comercio.
-     */
-    /**
-     * Paso 1: Redirigir a la pantalla de simulación de pago.
+     * Paso 1: Redirigir a la pantalla de simulación de pago (POST o GET /checkout).
      */
     public function checkout()
     {
@@ -231,16 +256,24 @@ class CartController
         }
 
         $cart = Session::get('cart', []);
-        $total = array_sum(array_map(fn($i) => $i['precio'] * $i['cantidad'], $cart));
+        $total = array_sum(array_map(fn($item) => $item['price'] * $item['quantity'], $cart));
 
         require_once ROOT_DIR . '/resources/views/user/checkout_simulation.php';
     }
 
     /**
-     * Paso 3: Confirmar y procesar la compra real en BD.
+     * Paso 3: Confirmar y procesar la compra real en BD utilizando transacciones.
      */
     public function confirmCheckout()
     {
+        // Protección CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida o token expirado.');
+            header('Location: ' . BASE_URL . '/cart');
+            exit;
+        }
+
         if (!Session::get('user_id')) {
             header('Location: ' . BASE_URL . '/login');
             exit;
@@ -253,67 +286,72 @@ class CartController
         }
 
         $db = Database::getInstance()->getConnection();
-        $total = array_sum(array_map(fn($i) => $i['precio'] * $i['cantidad'], $cart));
+        $total = array_sum(array_map(fn($item) => $item['price'] * $item['quantity'], $cart));
 
         try {
             $db->beginTransaction();
 
-            // --- FIX address_id: Asegurar que existe al menos una dirección ---
-            // En una app real esto vendría de un formulario o del perfil del usuario.
+            // --- Asegurar que existe al menos una dirección (Estructura unificada) ---
             $stmtAddr = $db->query('SELECT id FROM address LIMIT 1');
             $addressId = $stmtAddr->fetchColumn();
 
             if (!$addressId) {
-                // Crear una dirección de prueba si no hay ninguna en el sistema
-                $stmtNewAddr = $db->prepare('INSERT INTO address (calle, numero, codigo_postal, ciudad, provincia) VALUES (?, ?, ?, ?, ?)');
+                // Crear dirección de prueba con nombres unificados en inglés si la tabla migró,
+                // o manteniendo compatibilidad si mantienes columnas nativas. Ajustado a nomenclatura limpia:
+                $stmtNewAddr = $db->prepare('INSERT INTO address (street, number, zip_code, city, province) VALUES (?, ?, ?, ?, ?)');
                 $stmtNewAddr->execute(['Calle Mayor', '1', '28001', 'Madrid', 'Madrid']);
                 $addressId = $db->lastInsertId();
             }
 
-            // 1. Crear el registro principal de compra (ahora con address_id)
-            $stmt = $db->prepare('INSERT INTO purchase (user_id, address_id, total, estado) VALUES (?, ?, ?, ?)');
-            $stmt->execute([Session::get('user_id'), $addressId, $total, 'PENDIENTE']);
+            // 1. Crear el registro principal de compra (Mapeado a tablas/columnas en inglés)
+            $stmt = $db->prepare('INSERT INTO purchase (user_id, address_id, total, status) VALUES (?, ?, ?, ?)');
+            $stmt->execute([Session::get('user_id'), $addressId, $total, 'PENDING']);
             $purchaseId = (int)$db->lastInsertId();
 
-            // Preparar las líneas del pedido
-            $stmtItem = $db->prepare('INSERT INTO order_item (purchase_id, product_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)');
+            // Preparar las consultas de líneas de pedido unificadas
+            $stmtItem = $db->prepare('INSERT INTO order_item (purchase_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)');
             $stmtStock = $db->prepare('UPDATE product SET stock = stock - ? WHERE id = ? AND stock >= ?');
 
             $itemsForEmail = [];
             foreach ($cart as $productId => $item) {
-                $stmtStock->execute([$item['cantidad'], $productId, $item['cantidad']]);
+                $stmtStock->execute([$item['quantity'], $productId, $item['quantity']]);
                 if ($stmtStock->rowCount() === 0) {
-                    throw new \RuntimeException('Stock insuficiente para: ' . $item['nombre']);
+                    throw new \RuntimeException('Stock insuficiente para: ' . $item['name']);
                 }
-                $stmtItem->execute([$purchaseId, $productId, $item['cantidad'], $item['precio']]);
+
+                $stmtItem->execute([$purchaseId, $productId, $item['quantity'], $item['price']]);
+
+                // Array estructurado para los métodos de correo electrónico
                 $itemsForEmail[] = [
-                    'nombre' => $item['nombre'],
-                    'cantidad' => $item['cantidad'],
-                    'precio_unitario' => $item['precio'],
+                    'name' => $item['name'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['price'],
                 ];
             }
 
             $db->commit();
             Session::set('cart', []);
 
-            // Notificaciones por Email
+            // Notificaciones por Email (Adaptado al modelo unificado en inglés)
             $userRow = User::findById(Session::get('user_id'));
             if ($userRow) {
-                $userArr = ['nombre' => $userRow->nombre, 'email' => $userRow->email];
+                $userArr = ['name' => $userRow->first_name, 'email' => $userRow->email];
                 Mailer::sendOrderToClient($userArr, $itemsForEmail, $total, $purchaseId);
             }
 
+            // Agrupar y enviar correos a cada comercio implicado en el carrito
             foreach (array_unique(array_column($cart, 'business_id')) as $bid) {
                 $biz = Business::findById($bid);
                 if ($biz) {
-                    $bizItems = array_filter($cart, fn($i) => $i['business_id'] === $bid);
-                    $bizItems = array_map(fn($i) => [
-                        'nombre' => $i['nombre'],
-                        'cantidad' => $i['cantidad'],
-                        'precio_unitario' => $i['precio'],
+                    $bizItems = array_filter($cart, fn($item) => $item['business_id'] === $bid);
+                    $bizItems = array_map(fn($item) => [
+                        'name' => $item['name'],
+                        'quantity' => $item['quantity'],
+                        'unit_price' => $item['price'],
                     ], $bizItems);
-                    $bizTotal = array_sum(array_map(fn($i) => $i['precio_unitario'] * $i['cantidad'], $bizItems));
-                    Mailer::sendOrderToBusiness($biz->email, $biz->nombre, array_values($bizItems), $bizTotal, $purchaseId);
+
+                    $bizTotal = array_sum(array_map(fn($item) => $item['unit_price'] * $item['quantity'], $bizItems));
+                    Mailer::sendOrderToBusiness($biz->email, $biz->name, array_values($bizItems), $bizTotal, $purchaseId);
                 }
             }
 
@@ -321,8 +359,9 @@ class CartController
             header('Location: ' . BASE_URL . '/orders');
             exit;
         } catch (\Exception $e) {
-            if ($db->inTransaction())
+            if ($db->inTransaction()) {
                 $db->rollBack();
+            }
             Session::setFlash('error', 'Hubo un problema al procesar el pago: ' . $e->getMessage());
             header('Location: ' . BASE_URL . '/cart');
             exit;

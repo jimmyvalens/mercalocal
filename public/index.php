@@ -1,4 +1,5 @@
 <?php
+ob_start();
 // ── Servidor PHP built-in: servir archivos estáticos directamente ─────────
 // Cuando se usa `php -S`, si el archivo solicitado existe en /public,
 // devolvemos false para que el servidor lo sirva sin pasar por el router.

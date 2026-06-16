@@ -1,11 +1,11 @@
 <?php
 // =========================================================
-// src/Controllers/AuthController.php — Controlador de autenticación
+// app/Controllers/AuthController.php — Controlador de autenticación
 // Gestiona el flujo completo de identidad del usuario:
 //   · Mostrar el formulario de login
-//   · Procesar el inicio de sesión
+//   · Procesar el inicio de sesión con protección anti-fijación
 //   · Mostrar el formulario de registro
-//   · Crear nuevas cuentas
+//   · Crear nuevas cuentas normalizadas
 //   · Cerrar sesión
 // =========================================================
 namespace App\Controllers;
@@ -40,8 +40,7 @@ class AuthController
 
     /**
      * Procesa el formulario de login (POST /login).
-     * Verifica credenciales y establece la sesión del usuario.
-     * Los comercios sin perfil creado se redirigen al asistente de configuración.
+     * Verifica credenciales, previene fijación de sesión y establece la identidad.
      */
     public function login()
     {
@@ -64,10 +63,10 @@ class AuthController
                 exit;
             }
         } else {
-            $attempts = 0; // Reset after 15 min
+            $attempts = 0; // Reset tras 15 minutos
         }
 
-        // Protegemos contra CSRF en todos los envíos POST
+        // Protección CSRF
         $token = $_POST['csrf_token'] ?? '';
         if (!Session::validateCsrfToken($token)) {
             Session::setFlash('error', 'Petición inválida. Intenta de nuevo.');
@@ -75,40 +74,43 @@ class AuthController
             exit;
         }
 
-        $identificador = $_POST['identificador'] ?? '';
+        $identificador = trim($_POST['identificador'] ?? '');
         $password = $_POST['password'] ?? '';
 
         // Validación centralizada
         $validator = new \App\Core\Validator($_POST);
-        $validator->required('identificador', 'El identificador es obligatorio.')
+        $validator->required('identificador', 'El email o teléfono es obligatorio.')
             ->required('password', 'La contraseña es obligatoria.')
             ->minLength('password', 6, 'La contraseña debe tener al menos 6 caracteres.');
 
         if (!$validator->isValid()) {
             $errors = $validator->getErrors();
             Session::setFlash('error', implode(' ', $errors));
-            // Incrementar intentos
             Session::set($attemptsKey, $attempts + 1);
             Session::set($timeKey, $currentTime);
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
 
-        // Buscar el usuario por email o teléfono y verificar la contraseña
+        // Buscar el usuario por identificador (Email o Teléfono en BD)
         $user = User::findByIdentifier($identificador);
         if ($user && password_verify($password, $user->password_hash)) {
-            // Reset attempts on success
-            Session::set($attemptsKey, 0);
-            // Guardar datos del usuario en la sesión
-            Session::set('user_id', $user->id);
-            Session::set('user_role', $user->rol);
-            Session::set('user_name', $user->nombre);
-            Session::set('user_email', $user->email);
 
-            // Importante: No cerramos la sesión forzosamente si es AJAX porque queremos que Session Fixation ande fluido
+            // Resetear intentos de Login fallidos
+            Session::set($attemptsKey, 0);
+
+            // MITIGACIÓN CRÍTICA: Regenerar ID de sesión para prevenir Session Fixation
+            Session::regenerateId(true);
+
+            // Guardar datos del usuario alineados con el modelo en inglés (Acepta email nullable)
+            Session::set('user_id', $user->id);
+            Session::set('user_role', $user->role);
+            Session::set('user_name', $user->first_name);
+            Session::set('user_email', $user->email); // Puede ser null de forma segura
+
             if ($isAjax) {
                 $redirectUrl = BASE_URL . '/';
-                if ($user->rol === 'BUSINESS') {
+                if ($user->role === 'BUSINESS') {
                     $db = Database::getInstance()->getConnection();
                     $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
                     $stmt->execute([$user->id]);
@@ -118,7 +120,7 @@ class AuthController
                     } else {
                         $redirectUrl = BASE_URL . '/business/dashboard';
                     }
-                } elseif ($user->rol === 'ADMIN') {
+                } elseif ($user->role === 'ADMIN') {
                     $redirectUrl = BASE_URL . '/admin/dashboard';
                 }
 
@@ -126,13 +128,12 @@ class AuthController
                 exit;
             }
 
-            // Si es un comercio, comprobar si ya ha completado su perfil
-            if ($user->rol === 'BUSINESS') {
+            // Flujo de redirección síncrona según el rol del usuario
+            if ($user->role === 'BUSINESS') {
                 $db = Database::getInstance()->getConnection();
                 $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
                 $stmt->execute([$user->id]);
                 if (!$stmt->fetch()) {
-                    // Todavía no tiene perfil de comercio → redirigir al asistente
                     Session::setFlash('info', 'Completa el perfil de tu comercio para comenzar.');
                     session_write_close();
                     header('Location: ' . BASE_URL . '/business/setup');
@@ -143,30 +144,28 @@ class AuthController
                 exit;
             }
 
-            // Si es admin → su panel
-            if ($user->rol === 'ADMIN') {
+            if ($user->role === 'ADMIN') {
                 session_write_close();
                 header('Location: ' . BASE_URL . '/admin/dashboard');
                 exit;
             }
 
-            Session::setFlash('success', '¡Bienvenido de nuevo, ' . htmlspecialchars($user->nombre) . '!');
+            Session::setFlash('success', '¡Bienvenido de nuevo, ' . htmlspecialchars($user->first_name) . '!');
             session_write_close();
             header('Location: ' . BASE_URL . '/user/dashboard');
             exit;
         }
 
-        // Credenciales incorrectas - incrementar intentos
+        // Credenciales incorrectas
         Session::set($attemptsKey, $attempts + 1);
         Session::set($timeKey, $currentTime);
-        Session::setFlash('error', 'Credenciales incorrectas. Revisa tu email y contraseña.');
+        Session::setFlash('error', 'Credenciales incorrectas. Revisa tus datos de acceso.');
         header('Location: ' . BASE_URL . '/login');
         exit;
     }
 
     /**
      * Muestra el formulario de registro de nuevos usuarios.
-     * Si el usuario ya está autenticado, lo redirige al inicio.
      */
     public function showRegister()
     {
@@ -179,18 +178,10 @@ class AuthController
 
     /**
      * Procesa el formulario de registro (POST /register).
-     * Valida cada campo de forma individualizada y devuelve los valores
-     * introducidos + errores a la vista para no perder lo que el usuario escribió.
-     *
-     * Validaciones aplicadas:
-     *   - nombre / apellidos : mín 3 caracteres y al menos una vocal
-     *   - email              : formato válido
-     *   - teléfono           : exactamente 9 dígitos
-     *   - password           : mín 8 caracteres
      */
     public function register()
     {
-        // comprobar token CSRF
+        // Comprobar token CSRF
         $token = $_POST['csrf_token'] ?? '';
         if (!Session::validateCsrfToken($token)) {
             Session::setFlash('error', 'Petición inválida. Intenta de nuevo.');
@@ -198,29 +189,29 @@ class AuthController
             exit;
         }
 
-        // Recoger y sanear los datos del formulario
+        // Recoger y sanear datos estructurándolos para el modelo User en inglés
         $data = [
-            'nombre' => trim($_POST['nombre'] ?? ''),
-            'apellidos' => trim($_POST['apellidos'] ?? ''),
+            'first_name' => trim($_POST['nombre'] ?? ''),
+            'last_name' => trim($_POST['apellidos'] ?? ''),
             'identificador' => trim($_POST['identificador'] ?? ''),
             'password' => $_POST['password'] ?? '',
-            'rol' => in_array($_POST['rol'] ?? '', ['USER', 'BUSINESS']) ? $_POST['rol'] : 'USER',
+            'role' => in_array($_POST['rol'] ?? '', ['USER', 'BUSINESS']) ? $_POST['rol'] : 'USER',
         ];
 
-        $errors = []; // Errores individuales por campo
+        $errors = [];
 
-        // ── Validar nombre ──────────────────────────────────────────────
-        if (strlen($data['nombre']) < 3) {
+        // ── Validar primer nombre ──────────────────────────────────────────
+        if (strlen($data['first_name']) < 3) {
             $errors['nombre'] = 'El nombre debe tener al menos 3 caracteres.';
-        } elseif (!preg_match('/[aeiouáéíóúAEIOUÁÉÍÓÚ]/u', $data['nombre'])) {
+        } elseif (!preg_match('/[aeiouáéíóúAEIOUÁÉÍÓÚ]/u', $data['first_name'])) {
             $errors['nombre'] = 'El nombre debe contener al menos una vocal.';
         }
 
-        // ── Validar apellidos (opcional pero si se rellena, mismas reglas) ──
-        if (!empty($data['apellidos'])) {
-            if (strlen($data['apellidos']) < 3) {
+        // ── Validar apellidos ──────────────────────────────────────────────
+        if (!empty($data['last_name'])) {
+            if (strlen($data['last_name']) < 3) {
                 $errors['apellidos'] = 'Los apellidos deben tener al menos 3 caracteres.';
-            } elseif (!preg_match('/[aeiouáéíóúAEIOUÁÉÍÓÚ]/u', $data['apellidos'])) {
+            } elseif (!preg_match('/[aeiouáéíóúAEIOUÁÉÍÓÚ]/u', $data['last_name'])) {
                 $errors['apellidos'] = 'Los apellidos deben contener al menos una vocal.';
             }
         }
@@ -228,7 +219,7 @@ class AuthController
         // ── Validar Identificador (Email o Teléfono) ────────────────────
         $identificador = $data['identificador'];
         $data['email'] = null;
-        $data['telefono'] = null;
+        $data['phone'] = null;
 
         if (empty($identificador)) {
             $errors['identificador'] = 'El email o teléfono es obligatorio.';
@@ -242,7 +233,7 @@ class AuthController
             if (!preg_match('/^\d{9}$/', $telefonoLimpio)) {
                 $errors['identificador'] = 'Ingresa un email válido o un teléfono de 9 dígitos.';
             } else {
-                $data['telefono'] = $telefonoLimpio;
+                $data['phone'] = $telefonoLimpio;
                 if (User::findByIdentifier($telefonoLimpio)) {
                     $errors['identificador'] = 'Este teléfono ya está registrado. ¿Quieres iniciar sesión?';
                 }
@@ -256,42 +247,44 @@ class AuthController
             $errors['password'] = 'La contraseña debe tener al menos 8 caracteres.';
         }
 
-        // ── Si hay errores, devolver al formulario con los valores y errores ──
+        // Si hay fallos de validación, rellenar datos temporales para la vista
         if (!empty($errors)) {
-            // Guardar los valores válidos en sesión para repoblar el formulario
-            // La contraseña nunca se devuelve por seguridad
             Session::set('register_old', [
-                'nombre' => $data['nombre'],
-                'apellidos' => $data['apellidos'],
-                'identificador' => $data['identificador'],
-                'rol' => $data['rol'],
+                'nombre' => $data['first_name'],
+                'apellidos' => $data['last_name'],
+                'identificador' => $identificador,
+                'rol' => $data['role'],
             ]);
             Session::set('register_errors', $errors);
             header('Location: ' . BASE_URL . '/register');
             exit;
         }
 
-        // ── Sin errores: crear usuario ──────────────────────────────────
+        // Guardar registro en el sistema
         try {
             $userId = User::create($data);
-            Session::set('user_id', $userId);
-            Session::set('user_role', $data['rol']);
-            Session::set('user_name', $data['nombre']);
-            Session::set('user_email', $data['email']);
 
-            // Limpiar los datos temporales del formulario de la sesión
+            // MITIGACIÓN CRÍTICA: Regenerar ID de sesión tras alta exitosa
+            Session::regenerateId(true);
+
+            Session::set('user_id', $userId);
+            Session::set('user_role', $data['role']);
+            Session::set('user_name', $data['first_name']);
+            Session::set('user_email', $data['email']); // Almacena null si se registró con teléfono
+
             Session::remove('register_old');
             Session::remove('register_errors');
 
-            // Enviar email de bienvenida (no bloquea si MAIL_ENABLED = false o si falla)
-            Mailer::sendWelcome($data['nombre'], $data['email'], $data['rol']);
+            // CONTROL CRÍTICO: Enviar correo de bienvenida SOLO si el usuario suministró un email
+            if (!empty($data['email'])) {
+                Mailer::sendWelcome($data['first_name'], $data['email'], $data['role']);
+            }
 
-            // Redirigir según el rol elegido
-            if ($data['rol'] === 'BUSINESS') {
+            if ($data['role'] === 'BUSINESS') {
                 Session::setFlash('info', 'Cuenta creada. Ahora completa el perfil de tu comercio.');
                 header('Location: ' . BASE_URL . '/business/setup');
             } else {
-                Session::setFlash('success', '¡Bienvenido a Mercalocal, ' . $data['nombre'] . '!');
+                Session::setFlash('success', '¡Bienvenido a Mercalocal, ' . $data['first_name'] . '!');
                 header('Location: ' . BASE_URL . '/user/dashboard');
             }
             exit;
@@ -303,7 +296,7 @@ class AuthController
     }
 
     /**
-     * Cierra la sesión del usuario y lo redirige al inicio.
+     * Cierra la sesión del usuario y limpia la memoria de la cookie de sesión.
      */
     public function logout()
     {

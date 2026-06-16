@@ -1,40 +1,62 @@
 <?php
 // =========================================================
-// src/Controllers/UserController.php — Controlador del área de usuario
-// Gestiona las páginas privadas del cliente registrado:
-//   · Perfil personal
-//   · Historial de pedidos y reservas
+// app/Controllers/UserController.php — Controlador del área de usuario
+// Gestiona las páginas privadas del cliente registrado, incluyendo
+// el historial de pedidos, reservas y la gestión del perfil personal.
 // =========================================================
 namespace App\Controllers;
 
+use App\Core\BaseController;
 use App\Core\Session;
 use App\Models\User;
 use App\Core\Database;
 use PDO;
 
-class UserController
+/**
+ * Class UserController
+ * Hereda de BaseController para centralizar la inyección de usuario
+ * y la renderización de vistas seguras.
+ */
+class UserController extends BaseController
 {
+    /**
+     * Aplica el middleware de autenticación a todos los métodos del controlador.
+     */
     public function __construct()
     {
         \App\Core\Middleware::requireRole('USER');
     }
 
     /**
-     * Muestra el panel principal del usuario (GET /user/dashboard).
+     * Muestra el panel principal del usuario (Dashboard).
+     * Recupera las últimas compras para mostrar una vista resumida de actividad.
+     * * @return void
      */
     public function dashboard()
     {
+        // Validación de sesión
         if (!Session::get('user_id')) {
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
 
-        $user = User::findById(Session::get('user_id'));
+        $userData = User::findById(Session::get('user_id'));
+
+        if (!$userData) {
+            Session::destroy();
+            header('Location: ' . BASE_URL . '/login');
+            exit;
+        }
+
+        $user = is_array($userData) ? (object)$userData : $userData;
+        $GLOBALS['user'] = $user;
 
         $db = Database::getInstance()->getConnection();
 
-        $stmt = $db->prepare('SELECT id, total, estado, created_at FROM purchase WHERE user_id = ? ORDER BY created_at DESC LIMIT 3');
-        $stmt->execute([$user->id]);
+        // Consulta de compras recientes
+        $stmt = $db->prepare('SELECT id, total, status, created_at FROM purchase WHERE user_id = ? ORDER BY created_at DESC LIMIT 3');
+        $userId = is_object($user) ? $user->id : $user['id'];
+        $stmt->execute([$userId]);
         $purchases = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $recentActivity = [];
@@ -45,7 +67,8 @@ class UserController
                 $icon_bg = 'bg-green-50';
                 $icon_color = 'text-green-600';
 
-                if (strtolower($p['estado']) === 'pendiente') {
+                $currentStatus = strtolower($p['status']);
+                if ($currentStatus === 'pending' || $currentStatus === 'pendiente') {
                     $icon = 'fa-clock';
                     $icon_bg = 'bg-yellow-50';
                     $icon_color = 'text-yellow-600';
@@ -53,7 +76,7 @@ class UserController
 
                 $recentActivity[] = [
                     'title' => 'Pedido #' . str_pad($p['id'], 4, '0', STR_PAD_LEFT) . ' (' . number_format($p['total'], 2) . ' €)',
-                    'description' => 'Estado: ' . htmlspecialchars($p['estado']),
+                    'description' => 'Estado: ' . htmlspecialchars($p['status']),
                     'time' => date('d/m/Y', strtotime($p['created_at'])),
                     'icon' => $icon,
                     'icon_bg' => $icon_bg,
@@ -61,163 +84,119 @@ class UserController
                 ];
             }
         } else {
+            $createdAt = isset($user->created_at) ? $user->created_at : (isset($user['created_at']) ? $user['created_at'] : date('Y-m-d'));
+
             $recentActivity[] = [
                 'title' => 'Cuenta creada con éxito',
                 'description' => 'Bienvenido a Mercalocal',
-                'time' => date('d/m/Y', strtotime($user->created_at ?? date('Y-m-d'))),
+                'time' => date('d/m/Y', strtotime($createdAt)),
                 'icon' => 'fa-user-check',
                 'icon_bg' => 'bg-blue-50',
                 'icon_color' => 'text-blue-600'
             ];
         }
 
-        require_once ROOT_DIR . '/resources/views/user/dashboard.php';
+        // Renderizado mediante BaseController
+        $this->view('user/dashboard', ['recentActivity' => $recentActivity]);
     }
 
     /**
-     * Muestra el perfil del usuario autenticado (GET /profile).
+     * Muestra la vista del perfil personal.
      */
     public function profile()
     {
-        // Redirigir al login si el usuario no está autenticado
         if (!Session::get('user_id')) {
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
 
-        // Cargar los datos del usuario desde la BD
         $user = User::findById(Session::get('user_id'));
-        require_once ROOT_DIR . '/resources/views/user/profile.php';
+        $this->view('user/profile', ['user' => $user]);
     }
 
     /**
-     * Procesa la actualización del perfil (POST /user/profile/update).
+     * Procesa la actualización de los datos del perfil (nombre, teléfono, imagen).
      */
     public function updateProfile()
     {
-        if (!Session::get('user_id')) {
-            header('Location: ' . BASE_URL . '/login');
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'Petición inválida.');
+            header('Location: ' . BASE_URL . '/profile');
             exit;
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = User::findById(Session::get('user_id'));
-
             $data = [
-                'nombre' => trim($_POST['nombre'] ?? ''),
-                'apellidos' => trim($_POST['apellidos'] ?? ''),
-                'telefono' => trim($_POST['telefono'] ?? ''),
-                'direccion' => trim($_POST['direccion'] ?? '')
+                'name' => trim($_POST['nombre'] ?? ''),
+                'last_name' => trim($_POST['apellidos'] ?? ''),
+                'phone' => trim($_POST['telefono'] ?? ''),
+                'address' => trim($_POST['direccion'] ?? '')
             ];
 
-            // Handle image upload
-            if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] !== UPLOAD_ERR_NO_FILE) {
-                error_log("Intentando subir imagen: " . $_FILES['imagen']['name'] . " (Size: " . $_FILES['imagen']['size'] . ", Error: " . $_FILES['imagen']['error'] . ")");
-                if ($_FILES['imagen']['error'] !== UPLOAD_ERR_OK) {
-                    error_log("Error de upload no ok: " . $_FILES['imagen']['error']);
-                    Session::setFlash('error', 'Error al subir la imagen. Es posible que el archivo sea demasiado grande.');
-                    header('Location: ' . BASE_URL . '/profile');
-                    exit;
-                }
-
+            // Gestión de subida de imagen
+            if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
                 $uploadDir = ROOT_DIR . '/public/img/users/';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0777, true);
-                }
+                $ext = strtolower(pathinfo($_FILES['imagen']['name'], PATHINFO_EXTENSION));
 
-                $fileExtension = strtolower(pathinfo($_FILES['imagen']['name'], PATHINFO_EXTENSION));
-                $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
-
-                if (in_array($fileExtension, $allowedExtensions)) {
-                    $newFileName = 'user_' . $user->id . '_' . time() . '.' . $fileExtension;
+                if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
+                    $newFileName = 'user_' . $user->id . '_' . time() . '.' . $ext;
                     if (move_uploaded_file($_FILES['imagen']['tmp_name'], $uploadDir . $newFileName)) {
-                        error_log("Imagen movida correctamente a: " . $uploadDir . $newFileName);
-                        $data['imagen'] = 'img/users/' . $newFileName;
-
-                        // Delete old image if exists and is not default
-                        if ($user->imagen && file_exists(ROOT_DIR . '/public/' . $user->imagen) && strpos($user->imagen, 'default') === false) {
-                            unlink(ROOT_DIR . '/public/' . $user->imagen);
-                        }
-                    } else {
-                        error_log("Fallo move_uploaded_file desde " . $_FILES['imagen']['tmp_name'] . " a " . $uploadDir . $newFileName);
-                        Session::setFlash('error', 'No se pudo guardar la imagen en el servidor.');
-                        header('Location: ' . BASE_URL . '/profile');
-                        exit;
+                        $data['image_path'] = 'img/users/' . $newFileName;
                     }
-                } else {
-                    error_log("Extensión no permitida: " . $fileExtension);
-                    Session::setFlash('error', 'Formato de imagen no permitido. Usa JPG, PNG o WEBP.');
-                    header('Location: ' . BASE_URL . '/profile');
-                    exit;
                 }
             }
 
-            $updateResult = $user->update($data);
-            file_put_contents(ROOT_DIR . '/scratch_log.txt', "Update result: " . var_export($updateResult, true) . "\nData: " . print_r($data, true), FILE_APPEND);
-
-            Session::setFlash('success', 'Perfil actualizado correctamente.');
+            $user->update($data);
+            Session::setFlash('success', 'Perfil actualizado.');
             header('Location: ' . BASE_URL . '/profile');
             exit;
         }
     }
 
     /**
-     * Muestra el historial de compras y reservas del usuario (GET /orders).
-     * Devuelve dos conjuntos de datos a la vista:
-     *   · $orders       — pedidos de productos con sus líneas
-     *   · $reservations — reservas de servicios con detalles de comercio y servicio
+     * Muestra el historial completo de pedidos y reservas del usuario.
+     * Utiliza BaseController para inyectar datos y herramientas de formateo a la vista.
      */
     public function orders()
     {
-        if (!Session::get('user_id')) {
+        if (!$this->user) {
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
 
-        $userId = Session::get('user_id');
         $db = Database::getInstance()->getConnection();
 
-        // ── Obtener pedidos del usuario ordenados por fecha descendente ──
-        $stmt = $db->prepare(
-            'SELECT p.id, p.total, p.estado, p.created_at FROM purchase p
-             WHERE p.user_id = ? ORDER BY p.created_at DESC'
-        );
-        $stmt->execute([$userId]);
+        // 1. Recuperar Pedidos
+        $stmt = $db->prepare('SELECT p.id, p.total, p.status, p.created_at FROM purchase p WHERE p.user_id = ? ORDER BY p.created_at DESC');
+        $stmt->execute([$this->user->id]);
         $purchases = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Para cada pedido, cargar sus líneas de artículos con nombre y precio
-        $stmtItems = $db->prepare(
-            'SELECT oi.cantidad, oi.precio_unitario, pr.nombre
-             FROM order_item oi JOIN product pr ON pr.id = oi.product_id
-             WHERE oi.purchase_id = ?'
-        );
-
+        // 2. Recuperar Ítems de cada pedido
+        $stmtItems = $db->prepare('SELECT oi.quantity, oi.unit_price, pr.name FROM order_item oi JOIN product pr ON pr.id = oi.product_id WHERE oi.purchase_id = ?');
         foreach ($purchases as &$p) {
             $stmtItems->execute([$p['id']]);
             $p['items'] = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
         }
-        unset($p); // Romper la referencia para evitar efectos secundarios
+        unset($p);
 
-        // ── Obtener reservas del usuario con detalles del comercio y servicio ──
-        $stmtR = $db->prepare(
-            "SELECT r.id, r.fecha, r.hora_inicio, r.hora_fin, r.estado, r.created_at,
-                    b.nombre as business_name, s.nombre as service_name, ri.precio
-             FROM reservation r
-             JOIN business b ON b.id = r.business_id
-             LEFT JOIN reservation_item ri ON ri.reservation_id = r.id
-             LEFT JOIN service s ON s.id = ri.service_id
-             WHERE r.user_id = ? ORDER BY r.fecha DESC, r.hora_inicio DESC"
-        );
-        $stmtR->execute([$userId]);
+        // 3. Recuperar Reservas
+        $stmtR = $db->prepare("SELECT r.id, r.date, r.start_time, r.end_time, r.status, r.created_at, b.name as business_name, s.name as service_name, ri.price FROM reservation r JOIN business b ON b.id = r.business_id LEFT JOIN reservation_item ri ON ri.reservation_id = r.id LEFT JOIN service s ON s.id = ri.service_id WHERE r.user_id = ? ORDER BY r.date DESC, r.start_time DESC");
+        $stmtR->execute([$this->user->id]);
         $reservations = $stmtR->fetchAll(PDO::FETCH_ASSOC);
 
-        // $orders es un alias de $purchases para mayor claridad en la vista
-        $orders = $purchases;
-        require_once ROOT_DIR . '/resources/views/user/orders.php';
+        // 4. Renderizado centralizado con herramientas auxiliares
+        $this->view('user/orders', [
+            'orders'          => $purchases,
+            'reservations'    => $reservations,
+            'translateStatus' => [$this, 'translateStatus'],
+            'getStatusClass'  => [$this, 'getStatusClass']
+        ]);
     }
 
     /**
-     * API SSE para notificaciones en tiempo real
+     * API SSE (Server-Sent Events) para actualizaciones en tiempo real.
      */
     public function apiNotifications()
     {
@@ -230,33 +209,18 @@ class UserController
         header('Cache-Control: no-cache');
         header('Connection: keep-alive');
 
-        $userId = Session::get('user_id');
-
         while (true) {
-            // Simular notificaciones (en producción, consultar BD por cambios)
-            $notifications = [];
-
-            // Ejemplo: nuevos pedidos pendientes
             $db = Database::getInstance()->getConnection();
-            $stmt = $db->prepare("SELECT COUNT(*) as count FROM purchase WHERE user_id = ? AND estado = 'pendiente'");
-            $stmt->execute([$userId]);
+            $stmt = $db->prepare("SELECT COUNT(*) as count FROM purchase WHERE user_id = ? AND status = 'pending'");
+            $stmt->execute([Session::get('user_id')]);
             $pending = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($pending['count'] > 0) {
-                $notifications[] = [
-                    'type' => 'pending_orders',
-                    'message' => "Tienes {$pending['count']} pedido(s) pendiente(s)",
-                    'count' => $pending['count']
-                ];
-            }
-
-            if (!empty($notifications)) {
-                echo "data: " . json_encode($notifications) . "\n\n";
+                echo "data: " . json_encode([['type' => 'pending_orders', 'message' => "Tienes {$pending['count']} pedido(s) pendiente(s)", 'count' => $pending['count']]]) . "\n\n";
                 ob_flush();
                 flush();
             }
-
-            sleep(30); // Actualizar cada 30 segundos
+            sleep(30);
         }
     }
 }

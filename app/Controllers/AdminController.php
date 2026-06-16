@@ -7,8 +7,16 @@ namespace App\Controllers;
 
 use App\Core\Session;
 use App\Core\Database;
+use App\Core\FileUploader;
 use PDO;
 
+/**
+ * Clase AdminController
+ *
+ * Gestiona de forma centralizada las acciones del administrador global:
+ * aprobación, edición y filtrado estratégico de comercios, control de estadísticas
+ * y moderación de productos delegados.
+ */
 class AdminController
 {
     public function __construct()
@@ -24,10 +32,8 @@ class AdminController
         // Estadísticas generales para la vista de evolución
         $stats = \App\Models\Stat::getAdminStats();
 
-        // Obtenemos desglose de evolución mensual/reciente si el modelo lo permite
-        $evolution = method_exists('\App\Models\Stat', 'getMonthlyEvolution')
-            ? \App\Models\Stat::getMonthlyEvolution()
-            : [];
+        // TODO: Implementar la evolución mensual en el modelo Stat más adelante
+        $evolution = [];
 
         require_once ROOT_DIR . '/resources/views/admin/dashboard.php';
     }
@@ -52,11 +58,12 @@ class AdminController
 
         // Recoger filtros de la URL
         $search = trim($_GET['search'] ?? '');
-        $status = $_GET['status'] ?? '';
+        $status = $_GET['status'] ?? ''; // Ahora recibe: 'PENDING', 'ACTIVE' o 'SUSPENDED'
+        $business_type = $_GET['type'] ?? ''; // Nuevo filtro estratégico: 'PRODUCTS', 'SERVICES', 'HYBRID'
         $category = $_GET['category'] ?? '';
 
-        // Consulta base
-        $sql = "SELECT b.*, u.nombre as owner_name, u.email as owner_email,
+        // Consulta base adaptada al inglés técnico de la base de datos
+        $sql = "SELECT b.*, u.first_name as owner_name, u.email as owner_email,
                        COUNT(DISTINCT p.id) as product_count,
                        COUNT(DISTINCT s.id) as service_count
                 FROM business b
@@ -69,20 +76,26 @@ class AdminController
 
         // Filtro por término de búsqueda (Nombre, email o teléfono)
         if ($search !== '') {
-            $sql .= " AND (b.nombre LIKE ? OR b.email LIKE ? OR u.nombre LIKE ?)";
+            $sql .= " AND (b.name LIKE ? OR b.email LIKE ? OR u.first_name LIKE ?)";
             $searchTerm = "%$search%";
             $params[] = $searchTerm;
             $params[] = $searchTerm;
             $params[] = $searchTerm;
         }
 
-        // Filtro por Estado (Activo / Inactivo)
-        if ($status !== '') {
-            $sql .= " AND b.activo = ?";
-            $params[] = ($status === 'active') ? 1 : 0;
+        // Filtro profesional por Estado de moderación (ENUM)
+        if ($status !== '' && in_array($status, ['PENDING', 'ACTIVE', 'SUSPENDED'])) {
+            $sql .= " AND b.status = ?";
+            $params[] = $status;
         }
 
-        // Filtro por Categoría (Requiere relación con categorías en tabla intermedia o campo si existe)
+        // Filtro estratégico por Tipo de Negocio (ENUM)
+        if ($business_type !== '' && in_array($business_type, ['PRODUCTS', 'SERVICES', 'HYBRID'])) {
+            $sql .= " AND b.business_type = ?";
+            $params[] = $business_type;
+        }
+
+        // Filtro por Categoría
         if ($category !== '') {
             $sql .= " AND b.id IN (SELECT DISTINCT business_id FROM product WHERE category_id = ?)";
             $params[] = $category;
@@ -105,13 +118,13 @@ class AdminController
      * Detalle de un comercio específico con estadísticas individuales
      * GET /admin/business/{id}
      */
-    public function businessDetail($id)
+    public function businessDetail(int $id)
     {
         $db = Database::getInstance()->getConnection();
 
-        // Obtener información del comercio
+        // Obtener información del comercio adaptado a las columnas en inglés
         $stmt = $db->prepare(
-            "SELECT b.*, u.nombre as owner_name, u.email as owner_email, u.telefono as owner_phone
+            "SELECT b.*, u.first_name as owner_name, u.email as owner_email, u.phone as owner_phone
              FROM business b
              JOIN user u ON b.user_id = u.id
              WHERE b.id = ?
@@ -170,67 +183,103 @@ class AdminController
     public function create()
     {
         $db = Database::getInstance()->getConnection();
-        // Traer lista de usuarios comerciantes o posibles dueños para asociarlos
-        $stmt = $db->query("SELECT id, nombre, email FROM user ORDER BY nombre ASC");
+
+        // 1. Traer lista de usuarios comerciantes o posibles dueños
+        $stmt = $db->query("SELECT id, first_name as nombre, email FROM user ORDER BY first_name ASC");
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        require_once ROOT_DIR . '/resources/views/admin/business_form.php';
+        // 2. Traer la lista de categorías de la base de datos
+        $stmtCat = $db->query("SELECT id, nombre FROM category ORDER BY nombre ASC");
+        $categories = $stmtCat->fetchAll(PDO::FETCH_ASSOC);
+
+        // Carga del formulario apuntando a la vista con guion medio corregido
+        require_once ROOT_DIR . '/resources/views/admin/business-form.php';
     }
 
     /**
-     * Guarda un nuevo comercio en la base de datos de manera consistente.
+     * Procesa el guardado de un nuevo comercio.
      * POST /admin/business/store
      */
     public function store()
     {
-        $nombre = trim($_POST['nombre'] ?? '');
-        $descripcion = trim($_POST['descripcion'] ?? '');
-        $telefono = trim($_POST['telefono'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $web = trim($_POST['web'] ?? '');
-        $user_id = $_POST['user_id'] ?? null; // Forzar asignación de propietario
-        $activo = isset($_POST['activo']) ? 1 : 0;
-
-        // Si el admin no selecciona dueño, se auto-asigna de forma temporal o por defecto
-        if (!$user_id) {
-            $user_id = $_SESSION['user']['id'] ?? 1;
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . BASE_URL . '/admin/businesses');
+            exit;
         }
 
-        $logoPath = null;
-        $heroPath = null;
-        $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/uploads/businesses');
+        $db = Database::getInstance()->getConnection();
+
+        // 1. Sanitizar y capturar datos del formulario
+        $nombre = trim($_POST['nombre'] ?? '');
+        $categoria_id = !empty($_POST['categoria_id']) ? (int)$_POST['categoria_id'] : null;
+        $user_id = !empty($_POST['user_id']) ? (int)$_POST['user_id'] : null;
+        $email = trim($_POST['email'] ?? '');
+        $telefono = trim($_POST['telefono'] ?? '');
+        $direccion = trim($_POST['direccion'] ?? '');
+        $descripcion = trim($_POST['descripcion'] ?? '');
+        $web = trim($_POST['web'] ?? '');
+        $activo = isset($_POST['activo']) ? (int)$_POST['activo'] : 1;
+
+        $business_type = $_POST['business_type'] ?? 'PRODUCTS';
+        $status = $_POST['status'] ?? 'ACTIVE';
+
+        if (empty($nombre) || !$categoria_id || !$user_id) {
+            Session::setFlash('error', 'Por favor, rellena todos los campos obligatorios (*).');
+            header('Location: ' . BASE_URL . '/admin/business/create');
+            exit;
+        }
+
+        $logo_path = null;
+        $hero_path = null;
 
         try {
-            if (!empty($_FILES['logo']['tmp_name'])) {
-                $logoPath = $uploader->upload($_FILES['logo'], 'logo_');
+            // 2. Subida de archivos usando FileUploader
+            if (isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
+                $logoUploader = new FileUploader(ROOT_DIR . '/public/uploads/logos');
+                $logo_path = $logoUploader->upload($_FILES['logo'], 'logo_');
             }
-            if (!empty($_FILES['hero']['tmp_name'])) {
-                $heroPath = $uploader->upload($_FILES['hero'], 'hero_');
+
+            if (isset($_FILES['hero']) && $_FILES['hero']['error'] === UPLOAD_ERR_OK) {
+                $heroUploader = new FileUploader(ROOT_DIR . '/public/uploads/heroes');
+                $hero_path = $heroUploader->upload($_FILES['hero'], 'hero_');
             }
+
+            // 3. Insertar en la base de datos alineado al inglés técnico
+            $sql = "INSERT INTO business (name, category_id, user_id, email, phone, address, description, website, is_active, business_type, status, logo_path, hero_path, created_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+
+            $stmt = $db->prepare($sql);
+            $stmt->execute([
+                $nombre,
+                $categoria_id,
+                $user_id,
+                $email,
+                $telefono,
+                $direccion,
+                $descripcion,
+                $web,
+                $activo,
+                $business_type,
+                $status,
+                $logo_path,
+                $hero_path
+            ]);
+
+            Session::setFlash('success', 'Comercio creado correctamente.');
+            header('Location: ' . BASE_URL . '/admin/businesses');
+            exit;
         } catch (\Exception $e) {
             Session::setFlash('error', $e->getMessage());
             header('Location: ' . BASE_URL . '/admin/business/create');
             exit;
         }
-
-        // Si se solicita vista previa y no persistencia real inmediata
-        if (isset($_POST['is_preview']) && $_POST['is_preview'] == '1') {
-            // Se guardan los datos en flash para renderizarlos en una capa modal/mockup
-            Session::setFlash('preview_business', $_POST);
-            header('Location: ' . BASE_URL . '/admin/business/create?preview=true');
-            exit;
-        }
-
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('INSERT INTO business (nombre, descripcion, telefono, email, web, user_id, activo, logo_path, hero_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath]);
-
-        Session::setFlash('success', 'Comercio creado correctamente.');
-        header('Location: ' . BASE_URL . '/admin/businesses');
-        exit;
     }
 
-    public function edit($id)
+    /**
+     * Muestra el formulario para editar un comercio existente.
+     * GET /admin/business/{id}/edit
+     */
+    public function edit(int $id)
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT * FROM business WHERE id = ?');
@@ -243,65 +292,121 @@ class AdminController
             exit;
         }
 
-        $stmtUsers = $db->query("SELECT id, nombre, email FROM user ORDER BY nombre ASC");
+        $stmtUsers = $db->query("SELECT id, first_name as nombre, email FROM user ORDER BY first_name ASC");
         $users = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
 
-        require_once ROOT_DIR . '/resources/views/admin/business_form.php';
+        $stmtCat = $db->query("SELECT id, nombre FROM category ORDER BY nombre ASC");
+        $categories = $stmtCat->fetchAll(PDO::FETCH_ASSOC);
+
+        // Reutiliza el formulario apuntando a la vista con guion medio corregido
+        require_once ROOT_DIR . '/resources/views/admin/business-form.php';
     }
 
-    public function update($id)
+    /**
+     * Procesa la actualización de un comercio existente.
+     * POST /admin/business/{id}/update
+     */
+    public function update(int $id)
     {
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT * FROM business WHERE id = ?');
-        $stmt->execute([$id]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$business) {
-            Session::setFlash('error', 'Comercio no encontrado.');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: ' . BASE_URL . '/admin/businesses');
             exit;
         }
 
-        $nombre = trim($_POST['nombre'] ?? $business['nombre']);
-        $descripcion = trim($_POST['descripcion'] ?? $business['descripcion']);
-        $telefono = trim($_POST['telefono'] ?? $business['telefono']);
-        $email = trim($_POST['email'] ?? $business['email']);
-        $web = trim($_POST['web'] ?? $business['web']);
-        $user_id = $_POST['user_id'] ?? $business['user_id'];
-        $activo = isset($_POST['activo']) ? 1 : 0;
+        $db = Database::getInstance()->getConnection();
 
-        $logoPath = $business['logo_path'];
-        $heroPath = $business['hero_path'];
-        $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/uploads/businesses');
+        $stmt = $db->prepare("SELECT * FROM business WHERE id = ?");
+        $stmt->execute([$id]);
+        $business = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        try {
-            if (!empty($_FILES['logo']['tmp_name'])) {
-                $newLogo = $uploader->upload($_FILES['logo'], 'logo_');
-                if ($newLogo) $logoPath = $newLogo;
-            }
-            if (!empty($_FILES['hero']['tmp_name'])) {
-                $newHero = $uploader->upload($_FILES['hero'], 'hero_');
-                if ($newHero) $heroPath = $newHero;
-            }
-        } catch (\Exception $e) {
-            Session::setFlash('error', $e->getMessage());
-            header('Location: ' . BASE_URL . '/admin/business/' . $id . '/edit');
+        if (!$business) {
+            Session::setFlash('error', 'El comercio que intentas editar no existe.');
+            header('Location: ' . BASE_URL . '/admin/businesses');
             exit;
         }
 
-        $stmt = $db->prepare('UPDATE business SET nombre = ?, descripcion = ?, telefono = ?, email = ?, web = ?, user_id = ?, activo = ?, logo_path = ?, hero_path = ? WHERE id = ?');
-        $stmt->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath, $id]);
+        $nombre = trim($_POST['nombre'] ?? '');
+        $categoria_id = !empty($_POST['categoria_id']) ? (int)$_POST['categoria_id'] : null;
+        $user_id = !empty($_POST['user_id']) ? (int)$_POST['user_id'] : null;
+        $email = trim($_POST['email'] ?? '');
+        $telefono = trim($_POST['telefono'] ?? '');
+        $direccion = trim($_POST['direccion'] ?? '');
+        $descripcion = trim($_POST['descripcion'] ?? '');
+        $web = trim($_POST['web'] ?? '');
+        $activo = isset($_POST['activo']) ? (int)$_POST['activo'] : 1;
+        $business_type = $_POST['business_type'] ?? 'PRODUCTS';
+        $status = $_POST['status'] ?? 'ACTIVE';
 
-        Session::setFlash('success', 'Comercio actualizado correctamente.');
-        header('Location: ' . BASE_URL . '/admin/businesses');
-        exit;
+        if (empty($nombre) || !$categoria_id || !$user_id) {
+            Session::setFlash('error', 'Los campos con (*) son obligatorios.');
+            header('Location: ' . BASE_URL . "/admin/business/{$id}/edit");
+            exit;
+        }
+
+        $logo_path = $business['logo_path'];
+        $hero_path = $business['hero_path'];
+
+        try {
+            if (isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
+                $logoUploader = new FileUploader(ROOT_DIR . '/public/uploads/logos');
+                $logo_path = $logoUploader->upload($_FILES['logo'], 'logo_');
+
+                if (!empty($business['logo_path']) && file_exists(ROOT_DIR . '/public/' . $business['logo_path'])) {
+                    @unlink(ROOT_DIR . '/public/' . $business['logo_path']);
+                }
+            }
+
+            if (isset($_FILES['hero']) && $_FILES['hero']['error'] === UPLOAD_ERR_OK) {
+                $heroUploader = new FileUploader(ROOT_DIR . '/public/uploads/heroes');
+                $hero_path = $heroUploader->upload($_FILES['hero'], 'hero_');
+
+                if (!empty($business['hero_path']) && file_exists(ROOT_DIR . '/public/' . $business['hero_path'])) {
+                    @unlink(ROOT_DIR . '/public/' . $business['hero_path']);
+                }
+            }
+
+            // Actualizar registro en la BD usando los nuevos campos en inglés
+            $sql = "UPDATE business SET 
+                        name = ?, category_id = ?, user_id = ?, email = ?, phone = ?, 
+                        address = ?, description = ?, website = ?, is_active = ?, business_type = ?, 
+                        status = ?, logo_path = ?, hero_path = ? 
+                    WHERE id = ?";
+
+            $stmt = $db->prepare($sql);
+            $stmt->execute([
+                $nombre,
+                $categoria_id,
+                $user_id,
+                $email,
+                $telefono,
+                $direccion,
+                $descripcion,
+                $web,
+                $activo,
+                $business_type,
+                $status,
+                $logo_path,
+                $hero_path,
+                $id
+            ]);
+
+            Session::setFlash('success', 'Comercio actualizado con éxito.');
+            header('Location: ' . BASE_URL . '/admin/businesses');
+            exit;
+        } catch (\Exception $e) {
+            Session::setFlash('error', $e->getMessage());
+            header('Location: ' . BASE_URL . "/admin/business/{$id}/edit");
+            exit;
+        }
     }
 
-    public function delete($id)
+    public function delete(int $id)
     {
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('UPDATE business SET activo = 0 WHERE id = ?');
+        // Soft delete sincronizado con la columna 'is_active'
+        $stmt = $db->prepare('UPDATE business SET is_active = 0 WHERE id = ?');
         $stmt->execute([$id]);
+
         Session::setFlash('success', 'Comercio deshabilitado correctamente.');
         header('Location: ' . BASE_URL . '/admin/businesses');
         exit;
@@ -311,26 +416,14 @@ class AdminController
     // CRUD DE PRODUCTOS DELEGADO AL ADMINISTRADOR
     // =========================================================
 
-    /**
-     * Muestra el formulario de creación de producto para un comercio
-     * GET /admin/business/{business_id}/product/create
-     */
-    public function createProduct($businessId)
+    public function createProduct(int $businessId)
     {
         $db = Database::getInstance()->getConnection();
-
-        // Obtener categorías para el combo select
-        $stmt = $db->query("SELECT * FROM category ORDER BY nombre ASC");
-        $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
+        $categories = $db->query("SELECT * FROM category ORDER BY nombre ASC")->fetchAll(PDO::FETCH_ASSOC);
         require_once ROOT_DIR . '/resources/views/admin/product_form.php';
     }
 
-    /**
-     * Guarda el producto creado por el Admin
-     * POST /admin/business/{business_id}/product/store
-     */
-    public function storeProduct($businessId)
+    public function storeProduct(int $businessId)
     {
         $nombre = trim($_POST['nombre'] ?? '');
         $descripcion = trim($_POST['descripcion'] ?? '');
@@ -359,11 +452,7 @@ class AdminController
         exit;
     }
 
-    /**
-     * Muestra formulario de edición de un producto
-     * GET /admin/product/{id}/edit
-     */
-    public function editProduct($id)
+    public function editProduct(int $id)
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT * FROM product WHERE id = ?');
@@ -375,11 +464,7 @@ class AdminController
         require_once ROOT_DIR . '/resources/views/admin/product_form.php';
     }
 
-    /**
-     * Modifica el producto
-     * POST /admin/product/{id}/update
-     */
-    public function updateProduct($id)
+    public function updateProduct(int $id)
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT * FROM product WHERE id = ?');
@@ -413,11 +498,7 @@ class AdminController
         exit;
     }
 
-    /**
-     * Desactiva un producto (Soft Delete)
-     * POST /admin/product/{id}/delete
-     */
-    public function deleteProduct($id)
+    public function deleteProduct(int $id)
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT business_id FROM product WHERE id = ?');

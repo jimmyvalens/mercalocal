@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Models/Category.php — Modelo de categoría
+// app/Models/Category.php — Modelo de categoría
 // Representa una categoría temática (p.ej. Alimentación,
 // Peluquería, Deportes) que agrupa productos y servicios.
 // =========================================================
@@ -12,8 +12,8 @@ use PDO;
 class Category
 {
     // Propiedades que corresponden a las columnas de la tabla `category`
-    public $id;
-    public $nombre;
+    public int $id;
+    public string $name;
 
     /**
      * Devuelve todas las categorías disponibles ordenadas alfabéticamente.
@@ -24,7 +24,7 @@ class Category
     public static function getAll()
     {
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->query("SELECT * FROM category ORDER BY nombre");
+        $stmt = $db->query("SELECT * FROM category ORDER BY name");
         return $stmt->fetchAll(PDO::FETCH_CLASS, self::class);
     }
 }

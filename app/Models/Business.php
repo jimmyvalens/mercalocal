@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Models/Business.php — Modelo de comercio
+// app/Models/Business.php — Modelo de comercio
 // Representa un negocio registrado en la plataforma.
 // Gestiona la lectura de datos de la tabla `business`
 // y provee métodos para obtener sus productos, servicios
@@ -13,20 +13,23 @@ use PDO;
 
 class Business
 {
-    // Propiedades que corresponden a las columnas de la tabla `business`
-    public $id;
-    public $user_id; // ID del usuario propietario del comercio
-    public $nombre;
-    public $descripcion;
-    public $telefono;
-    public $email;
-    public $web;
-    public $activo; // 1 = visible en el catálogo, 0 = oculto
-    public $logo_path;
-    public $hero_path;
-    public $created_at;
-    public $updated_at;
-    public $categorias; // Campo calculado: categorías concatenadas con GROUP_CONCAT
+    // Propiedades que corresponden a las columnas de la tabla `business`.
+    public ?int $id = null;
+    public int $user_id;
+    public string $name;
+    public ?string $description = null;
+    public ?string $business_type = null;
+    public ?string $status = null;
+    public ?string $phone = null;
+    public ?string $email = null;        // Corregido: ahora acepta null por defecto
+    public ?string $website = null;
+    public bool $is_active = true;
+    public ?string $logo_path = null;
+    public ?string $hero_path = null;
+    public string $created_at;
+    public ?string $updated_at = null;
+    public ?int $category_id = null;
+    public ?string $categories = null; // Campo calculado por GROUP_CONCAT.
 
     /**
      * Devuelve todos los comercios activos.
@@ -49,30 +52,30 @@ class Business
 
         $db = Database::getInstance()->getConnection();
 
-        // Consulta base: lista comercios activos con sus categorías agrupadas
-        $sql = "SELECT b.*, GROUP_CONCAT(DISTINCT c.nombre SEPARATOR ', ') as categorias
+        // Consulta base.
+        $sql = "SELECT b.*, GROUP_CONCAT(DISTINCT c.name SEPARATOR ', ') as categories
                 FROM business b
                 LEFT JOIN product p  ON b.id = p.business_id
                 LEFT JOIN service s  ON b.id = s.business_id
                 LEFT JOIN category c ON p.category_id = c.id OR s.category_id = c.id
-                WHERE b.activo = 1";
+                WHERE b.is_active = 1";
 
         $params = [];
 
-        // Filtro de búsqueda por nombre (búsqueda parcial con LIKE)
+        // Filtro de búsqueda por name
         if (!empty($search)) {
-            $sql .= " AND b.nombre LIKE ?";
+            $sql .= " AND b.name LIKE ?";
             $params[] = '%' . $search . '%';
         }
 
-        // Filtro por categoría (aplica a productos y servicios)
+        // Filtro por categoría
         if (!empty($categoryId)) {
             $sql .= " AND (p.category_id = ? OR s.category_id = ?)";
             $params[] = $categoryId;
             $params[] = $categoryId;
         }
 
-        $sql .= " GROUP BY b.id"; // Agrupar para que GROUP_CONCAT funcione correctamente
+        $sql .= " GROUP BY b.id";
 
         // Paginación
         if ($limit !== null) {
@@ -106,12 +109,12 @@ class Business
                 FROM business b
                 LEFT JOIN product p  ON b.id = p.business_id
                 LEFT JOIN service s  ON b.id = s.business_id
-                WHERE b.activo = 1";
+                WHERE b.is_active = 1";
 
         $params = [];
 
         if (!empty($search)) {
-            $sql .= " AND b.nombre LIKE ?";
+            $sql .= " AND b.name LIKE ?";
             $params[] = '%' . $search . '%';
         }
 
@@ -160,10 +163,10 @@ class Business
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare(
-            "SELECT s.*, c.nombre as category_name
+            "SELECT s.*, c.name as category_name
              FROM service s
              LEFT JOIN category c ON s.category_id = c.id
-             WHERE s.business_id = ? AND s.activo = 1"
+             WHERE s.business_id = ? AND s.is_active = 1"
         );
         $stmt->execute([$this->id]);
         return $stmt->fetchAll();
@@ -179,10 +182,10 @@ class Business
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare(
-            "SELECT p.*, c.nombre as category_name
+            "SELECT p.*, c.name as category_name
              FROM product p
              LEFT JOIN category c ON p.category_id = c.id
-             WHERE p.business_id = ? AND p.activo = 1"
+             WHERE p.business_id = ? AND p.is_active = 1"
         );
         $stmt->execute([$this->id]);
         return $stmt->fetchAll();
@@ -192,7 +195,7 @@ class Business
      * Devuelve los horarios de apertura del comercio
      * ordenados por día de la semana y hora de apertura.
      *
-     * @return array Array con los horarios de la tabla `schedule`
+     * @return array Array con los horarios de la tabla `schedule`.
      */
     public function getSchedules()
     {
@@ -200,7 +203,7 @@ class Business
         $stmt = $db->prepare(
             "SELECT * FROM schedule
              WHERE business_id = ?
-             ORDER BY dia_semana, hora_apertura"
+             ORDER BY day_of_week, opening_time"
         );
         $stmt->execute([$this->id]);
         return $stmt->fetchAll();

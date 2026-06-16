@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Controllers/ReservationController.php — Controlador de reservas
+// app/Controllers/ReservationController.php — Controlador de reservas
 // Gestiona el sistema de citas/reservas de servicios:
 //   · Mostrar el formulario de reserva de un comercio
 //   · Guardar la cita validando disponibilidad horaria
@@ -141,9 +141,9 @@ class ReservationController
         // Email al cliente con los detalles de su cita
         if ($userRow) {
             Mailer::sendReservationToClient(
-                ['nombre' => $userRow->nombre, 'email' => $userRow->email],
+                ['nombre' => $userRow->first_name, 'email' => $userRow->email],
                 $reservationData,
-                $business ? $business->nombre : 'el comercio'
+                $business ? $business->name : 'el comercio'
             );
         }
 
@@ -156,7 +156,7 @@ class ReservationController
             ];
             Mailer::sendReservationToBusiness(
                 $business->email,
-                $business->nombre,
+                $business->name,
                 $userArray,
                 $reservationData
             );
