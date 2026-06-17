@@ -14,6 +14,7 @@ class Service
     public $category_id;
     public $nombre;
     public $descripcion;
+    public $duracion_minutos;
     public $duracion; // minutos
     public $precio;
     public $activo;
@@ -23,7 +24,7 @@ class Service
     public static function findById($id)
     {
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("SELECT * FROM service WHERE id = ?");
+        $stmt = $db->prepare("SELECT service.*, duracion_minutos AS duracion FROM service WHERE id = ?");
         $stmt->execute([$id]);
         $stmt->setFetchMode(PDO::FETCH_CLASS, self::class);
         return $stmt->fetch();
@@ -32,7 +33,7 @@ class Service
     public static function getByBusiness(int $businessId): array
     {
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("SELECT s.*, c.nombre AS category_name FROM service s LEFT JOIN category c ON c.id = s.category_id WHERE s.business_id = ? ORDER BY s.created_at DESC");
+        $stmt = $db->prepare("SELECT s.*, s.duracion_minutos AS duracion, c.nombre AS category_name FROM service s LEFT JOIN category c ON c.id = s.category_id WHERE s.business_id = ? ORDER BY s.created_at DESC");
         $stmt->execute([$businessId]);
         return $stmt->fetchAll(PDO::FETCH_CLASS, self::class);
     }
@@ -40,7 +41,7 @@ class Service
     public static function create(array $data): int
     {
         $db = Database::getInstance()->getConnection();
-        $sql = "INSERT INTO service (business_id, category_id, nombre, descripcion, duracion, precio, activo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
+        $sql = "INSERT INTO service (business_id, category_id, nombre, descripcion, duracion_minutos, precio, activo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
         $stmt = $db->prepare($sql);
         $stmt->execute([
             $data['business_id'],
@@ -57,7 +58,7 @@ class Service
     public static function update(int $id, array $data): bool
     {
         $db = Database::getInstance()->getConnection();
-        $sql = "UPDATE service SET category_id = ?, nombre = ?, descripcion = ?, duracion = ?, precio = ?, activo = ? WHERE id = ?";
+        $sql = "UPDATE service SET category_id = ?, nombre = ?, descripcion = ?, duracion_minutos = ?, precio = ?, activo = ? WHERE id = ?";
         $stmt = $db->prepare($sql);
         return $stmt->execute([
             $data['category_id'] ?? null,

@@ -177,6 +177,7 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                                                 <i class="fa-solid fa-pen-to-square"></i>
                                             </a>
                                             <form action="<?= BASE_URL ?>/admin/business/<?= $business['id'] ?>/delete" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas eliminar (desactivar) este comercio?');">
+                                                <?= \App\Core\Session::csrfField() ?>
                                                 <button type="submit" class="inline-flex items-center justify-center w-8 h-8 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition-colors shadow-sm" title="Eliminar">
                                                     <i class="fa-solid fa-trash"></i>
                                                 </button>

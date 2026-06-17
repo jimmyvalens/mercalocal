@@ -19,13 +19,14 @@ if (php_sapi_name() === 'cli-server') {
 //   · Despachar la petición al controlador correspondiente
 // =========================================================
 
-// Configurar modo de desarrollo/producción
-define('APP_DEBUG', true); // Cambiar a false en producción
-
 // Cargar configuración de BD, URLs y Email
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../app/Core/Session.php';
 require_once __DIR__ . '/../app/Core/ExceptionHandler.php';
+
+// Configurar modo de desarrollo/producción desde .env
+$debugValue = $_ENV['APP_DEBUG'] ?? (($_ENV['APP_ENV'] ?? 'development') !== 'production' ? 'true' : 'false');
+define('APP_DEBUG', filter_var($debugValue, FILTER_VALIDATE_BOOLEAN));
 
 // Registrar manejador de excepciones
 \App\Core\ExceptionHandler::register();
@@ -58,6 +59,23 @@ use App\Controllers\ReservationController;
 
 // Iniciar la sesión PHP (una sola vez por petición)
 Session::start();
+
+// Proteger todos los formularios POST con CSRF.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $token = $_POST['csrf_token'] ?? '';
+    if (!Session::validateCsrfToken($token)) {
+        Session::setFlash('error', 'Petición inválida. Vuelve a intentarlo.');
+
+        $redirect = BASE_URL . '/';
+        $referer = $_SERVER['HTTP_REFERER'] ?? '';
+        if ($referer !== '' && strpos($referer, BASE_URL) === 0) {
+            $redirect = $referer;
+        }
+
+        header('Location: ' . $redirect);
+        exit;
+    }
+}
 
 // ── Registro de rutas ─────────────────────────────────────
 $router = new Router();
@@ -157,55 +175,56 @@ $router->get('/profile', [UserController::class, 'profile']);
 $router->post('/user/profile/update', [UserController::class, 'updateProfile']);
 $router->get('/orders', [UserController::class, 'orders']);
 
-// ── Rutas de Depuración (Visualización de Vistas) ──────────
-// Estas rutas permiten previsualizar los diseños sin base de datos real
-$router->get('/debug/admin', function () {
-    $stats = ['users' => 1250, 'businesses' => 45, 'sales' => 15750.50];
-    require_once ROOT_DIR . '/resources/views/admin/dashboard.php';
-});
-$router->get('/debug/business', function () {
-    $stats = ['products' => 12, 'services' => 5, 'reservations' => 8];
-    $recentOrders = [
-        ['id' => 101, 'client_name' => 'Juan Perez', 'total' => 45.50, 'estado' => 'pendiente', 'created_at' => date('Y-m-d')],
-        ['id' => 102, 'client_name' => 'Maria Garcia', 'total' => 22.00, 'estado' => 'completado', 'created_at' => date('Y-m-d')]
-    ];
-    $upcomingReservations = [];
-    require_once ROOT_DIR . '/resources/views/business/dashboard.php';
-});
-$router->get('/debug/user/dashboard', function () {
-    $user = (object)['id' => 99, 'nombre' => 'Usuario Demo', 'apellidos' => '', 'email' => 'demo@mercalocal.es', 'rol' => 'user'];
-    $recentActivity = [
-        ['title' => 'Pedido #1042 Completado', 'description' => 'Hace 2 días en Frutería La Fresca', 'time' => '01-03', 'icon' => 'fa-check', 'icon_bg' => 'bg-green-100', 'icon_color' => 'text-green-600'],
-        ['title' => 'Cuenta creada con éxito', 'description' => 'Bienvenido a Mercalocal', 'time' => '01-02', 'icon' => 'fa-user-check', 'icon_bg' => 'bg-blue-100', 'icon_color' => 'text-blue-600']
-    ];
-    require_once ROOT_DIR . '/resources/views/user/dashboard.php';
-});
-$router->get('/debug/profile', function () {
-    $user = (object)['id' => 99, 'nombre' => 'Usuario', 'apellidos' => 'Demo', 'email' => 'demo@mercalocal.es', 'telefono' => '600000000', 'rol' => 'user'];
-    require_once ROOT_DIR . '/resources/views/user/profile.php';
-});
-$router->get('/debug/orders', function () {
-    $orders = [
-        ['id' => 1, 'total' => 25.00, 'estado' => 'completado', 'created_at' => '2026-05-01', 'business_name' => 'Frutería Paco'],
-        ['id' => 2, 'total' => 15.50, 'estado' => 'pendiente', 'created_at' => '2026-05-02', 'business_name' => 'Carnicería Selecta']
-    ];
-    require_once ROOT_DIR . '/resources/views/user/orders.php';
-});
-$router->get('/debug/products', function () {
-    $products = [
-        (object)['id' => 1, 'nombre' => 'Producto 1', 'descripcion' => 'Descripción corta', 'precio' => 10.50, 'stock' => 20],
-        (object)['id' => 2, 'nombre' => 'Producto 2', 'descripcion' => 'Otra descripción', 'precio' => 5.00, 'stock' => 0]
-    ];
-    require_once ROOT_DIR . '/resources/views/business/products/index.php';
-});
-$router->get('/debug/products/form', function () {
-    $cats = [['id' => 1, 'nombre' => 'Alimentación']];
-    require_once ROOT_DIR . '/resources/views/business/products/form.php';
-});
-$router->get('/debug/settings', function () {
-    $business = ['nombre' => 'Mi Comercio', 'descripcion' => 'Descripción del negocio', 'telefono' => '912345678', 'email' => 'comercio@test.com', 'web' => ''];
-    require_once ROOT_DIR . '/resources/views/business/settings.php';
-});
+// ── Rutas de Depuración (solo en desarrollo) ──────────
+if (APP_DEBUG) {
+    $router->get('/debug/admin', function () {
+        $stats = ['users' => 1250, 'businesses' => 45, 'sales' => 15750.50];
+        require_once ROOT_DIR . '/resources/views/admin/dashboard.php';
+    });
+    $router->get('/debug/business', function () {
+        $stats = ['products' => 12, 'services' => 5, 'reservations' => 8];
+        $recentOrders = [
+            ['id' => 101, 'client_name' => 'Juan Perez', 'total' => 45.50, 'estado' => 'pendiente', 'created_at' => date('Y-m-d')],
+            ['id' => 102, 'client_name' => 'Maria Garcia', 'total' => 22.00, 'estado' => 'completado', 'created_at' => date('Y-m-d')]
+        ];
+        $upcomingReservations = [];
+        require_once ROOT_DIR . '/resources/views/business/dashboard.php';
+    });
+    $router->get('/debug/user/dashboard', function () {
+        $user = (object)['id' => 99, 'nombre' => 'Usuario Demo', 'apellidos' => '', 'email' => 'demo@mercalocal.es', 'rol' => 'user'];
+        $recentActivity = [
+            ['title' => 'Pedido #1042 Completado', 'description' => 'Hace 2 días en Frutería La Fresca', 'time' => '01-03', 'icon' => 'fa-check', 'icon_bg' => 'bg-green-100', 'icon_color' => 'text-green-600'],
+            ['title' => 'Cuenta creada con éxito', 'description' => 'Bienvenido a Mercalocal', 'time' => '01-02', 'icon' => 'fa-user-check', 'icon_bg' => 'bg-blue-100', 'icon_color' => 'text-blue-600']
+        ];
+        require_once ROOT_DIR . '/resources/views/user/dashboard.php';
+    });
+    $router->get('/debug/profile', function () {
+        $user = (object)['id' => 99, 'nombre' => 'Usuario', 'apellidos' => 'Demo', 'email' => 'demo@mercalocal.es', 'telefono' => '600000000', 'rol' => 'user'];
+        require_once ROOT_DIR . '/resources/views/user/profile.php';
+    });
+    $router->get('/debug/orders', function () {
+        $orders = [
+            ['id' => 1, 'total' => 25.00, 'estado' => 'completado', 'created_at' => '2026-05-01', 'business_name' => 'Frutería Paco'],
+            ['id' => 2, 'total' => 15.50, 'estado' => 'pendiente', 'created_at' => '2026-05-02', 'business_name' => 'Carnicería Selecta']
+        ];
+        require_once ROOT_DIR . '/resources/views/user/orders.php';
+    });
+    $router->get('/debug/products', function () {
+        $products = [
+            (object)['id' => 1, 'nombre' => 'Producto 1', 'descripcion' => 'Descripción corta', 'precio' => 10.50, 'stock' => 20],
+            (object)['id' => 2, 'nombre' => 'Producto 2', 'descripcion' => 'Otra descripción', 'precio' => 5.00, 'stock' => 0]
+        ];
+        require_once ROOT_DIR . '/resources/views/business/products/index.php';
+    });
+    $router->get('/debug/products/form', function () {
+        $cats = [['id' => 1, 'nombre' => 'Alimentación']];
+        require_once ROOT_DIR . '/resources/views/business/products/form.php';
+    });
+    $router->get('/debug/settings', function () {
+        $business = ['nombre' => 'Mi Comercio', 'descripcion' => 'Descripción del negocio', 'telefono' => '912345678', 'email' => 'comercio@test.com', 'web' => ''];
+        require_once ROOT_DIR . '/resources/views/business/settings.php';
+    });
+}
 
 // API REST
 $router->get('/api/businesses', [BusinessController::class, 'apiIndex']);
