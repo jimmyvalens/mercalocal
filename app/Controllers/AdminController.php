@@ -139,7 +139,7 @@ class AdminController
 
         // Servicios del comercio
         $stmt = $db->prepare(
-            "SELECT s.*, c.nombre as category_name
+            "SELECT s.*, s.duracion_minutos AS duracion, c.nombre as category_name
              FROM service s
              LEFT JOIN category c ON s.category_id = c.id
              WHERE s.business_id = ?
@@ -151,7 +151,7 @@ class AdminController
         // Estadísticas avanzadas del comercio
         $stmt = $db->prepare(
             "SELECT COUNT(DISTINCT p.id) as total_sales,
-                    IFNULL(SUM(oi.cantidad * oi.precio), 0) as total_revenue
+                    IFNULL(SUM(oi.cantidad * oi.precio_unitario), 0) as total_revenue
              FROM purchase p
              JOIN order_item oi ON oi.purchase_id = p.id
              JOIN product pr ON pr.id = oi.product_id
@@ -193,7 +193,7 @@ class AdminController
 
         // Si el admin no selecciona dueño, se auto-asigna de forma temporal o por defecto
         if (!$user_id) {
-            $user_id = $_SESSION['user']['id'] ?? 1;
+            $user_id = Session::get('user_id') ?? 1;
         }
 
         $logoPath = null;
@@ -335,14 +335,18 @@ class AdminController
         $nombre = trim($_POST['nombre'] ?? '');
         $descripcion = trim($_POST['descripcion'] ?? '');
         $precio = floatval($_POST['precio'] ?? 0);
+        $stock = max(0, (int)($_POST['stock'] ?? 0));
         $category_id = $_POST['category_id'] ?? null;
-        $activo = isset($_POST['activo']) ? 1 : 0;
+        $activo = (int)($_POST['activo'] ?? 0);
         $imagePath = null;
 
         $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/img/products');
         try {
             if (!empty($_FILES['imagen']['tmp_name'])) {
                 $imagePath = $uploader->upload($_FILES['imagen'], 'prod_');
+                if ($imagePath) {
+                    $imagePath = basename($imagePath);
+                }
             }
         } catch (\Exception $e) {
             Session::setFlash('error', $e->getMessage());
@@ -351,8 +355,8 @@ class AdminController
         }
 
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('INSERT INTO product (business_id, category_id, nombre, descripcion, precio, activo, imagen_path) VALUES (?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$businessId, $category_id, $nombre, $descripcion, $precio, $activo, $imagePath]);
+        $stmt = $db->prepare('INSERT INTO product (business_id, category_id, nombre, descripcion, precio, stock, activo, imagen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$businessId, $category_id, $nombre, $descripcion, $precio, $stock, $activo, $imagePath]);
 
         Session::setFlash('success', 'Producto agregado correctamente por el Administrador.');
         header('Location: ' . BASE_URL . '/admin/business/' . $businessId);
@@ -389,15 +393,16 @@ class AdminController
         $nombre = trim($_POST['nombre'] ?? $product['nombre']);
         $descripcion = trim($_POST['descripcion'] ?? $product['descripcion']);
         $precio = floatval($_POST['precio'] ?? $product['precio']);
+        $stock = max(0, (int)($_POST['stock'] ?? $product['stock']));
         $category_id = $_POST['category_id'] ?? $product['category_id'];
-        $activo = isset($_POST['activo']) ? 1 : 0;
-        $imagePath = $product['imagen_path'];
+        $activo = (int)($_POST['activo'] ?? 0);
+        $imagePath = $product['imagen'] ?? null;
 
         if (!empty($_FILES['imagen']['tmp_name'])) {
             $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/img/products');
             try {
                 $newImg = $uploader->upload($_FILES['imagen'], 'prod_');
-                if ($newImg) $imagePath = $newImg;
+                if ($newImg) $imagePath = basename($newImg);
             } catch (\Exception $e) {
                 Session::setFlash('error', $e->getMessage());
                 header('Location: ' . BASE_URL . "/admin/product/$id/edit");
@@ -405,8 +410,8 @@ class AdminController
             }
         }
 
-        $stmt = $db->prepare('UPDATE product SET nombre = ?, descripcion = ?, precio = ?, category_id = ?, activo = ?, imagen_path = ? WHERE id = ?');
-        $stmt->execute([$nombre, $descripcion, $precio, $category_id, $activo, $imagePath, $id]);
+        $stmt = $db->prepare('UPDATE product SET nombre = ?, descripcion = ?, precio = ?, stock = ?, category_id = ?, activo = ?, imagen = ? WHERE id = ?');
+        $stmt->execute([$nombre, $descripcion, $precio, $stock, $category_id, $activo, $imagePath, $id]);
 
         Session::setFlash('success', 'Producto actualizado correctamente.');
         header('Location: ' . BASE_URL . '/admin/business/' . $product['business_id']);

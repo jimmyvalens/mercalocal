@@ -15,6 +15,7 @@
 
 
         <form class="mt-8 space-y-6" action="<?= BASE_URL ?>/business/setup" method="POST">
+            <?= \App\Core\Session::csrfField() ?>
             <div class="rounded-md shadow-sm space-y-5">
 
                 <!-- Nombre -->

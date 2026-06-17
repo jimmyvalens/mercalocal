@@ -18,6 +18,7 @@
         </div>
 
         <form action="<?= isset($product) ? BASE_URL . '/business/dashboard/products/' . $product->id . '/update' : BASE_URL . '/business/dashboard/products/store' ?>" method="POST" enctype="multipart/form-data" class="p-8 space-y-6">
+            <?= \App\Core\Session::csrfField() ?>
             <div class="grid grid-cols-1 gap-6">
                 <!-- Nombre -->
                 <div>

@@ -224,6 +224,7 @@
             <!-- VACIAR CESTA -->
             <div style="display: flex; justify-content: flex-end; margin-bottom: 20px; padding-right: 10px;">
                 <form action="<?= BASE_URL ?>/cart/clear" method="POST" onsubmit="return confirm('¿Vaciar toda la cesta?')">
+                    <?= \App\Core\Session::csrfField() ?>
                     <button type="submit" class="btn-clear">
                         <i class="fa-solid fa-trash-can"></i> Vaciar mi cesta
                     </button>
@@ -239,6 +240,7 @@
 
                             <!-- BOTÓN ELIMINAR (X) -->
                             <form action="<?= BASE_URL ?>/cart/remove" method="POST" style="position: absolute; top: 25px; right: 25px;">
+                                <?= \App\Core\Session::csrfField() ?>
                                 <input type="hidden" name="product_id" value="<?= $id ?>">
                                 <button type="submit" style="background: white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #94a3b8; transition: 0.2s;" onmouseover="this.style.color='#ef4444'; this.style.borderColor='#ef4444';" onmouseout="this.style.color='#94a3b8'; this.style.borderColor='#e2e8f0';">
                                     <i class="fa-solid fa-xmark" style="font-size: 16px;"></i>
@@ -272,12 +274,14 @@
 
                                         <div style="display: flex; align-items: center; background: #f1f5f9; border-radius: 50px; padding: 4px; border: 1px solid #e2e8f0;">
                                             <form action="<?= BASE_URL ?>/cart/update" method="POST" style="margin: 0;">
+                                                <?= \App\Core\Session::csrfField() ?>
                                                 <input type="hidden" name="product_id" value="<?= $id ?>">
                                                 <input type="hidden" name="accion" value="restar">
                                                 <button type="submit" style="width: 28px; height: 28px; border-radius: 50%; border: none; background: white; color: #00b050; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center;">&minus;</button>
                                             </form>
                                             <span style="width: 32px; text-align: center; font-weight: 800; color: #1a2e1f; font-size: 13px;"><?= $item['cantidad'] ?></span>
                                             <form action="<?= BASE_URL ?>/cart/update" method="POST" style="margin: 0;">
+                                                <?= \App\Core\Session::csrfField() ?>
                                                 <input type="hidden" name="product_id" value="<?= $id ?>">
                                                 <input type="hidden" name="accion" value="sumar">
                                                 <button type="submit" style="width: 28px; height: 28px; border-radius: 50%; border: none; background: white; color: #00b050; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center;">&plus;</button>
@@ -347,6 +351,7 @@
 
                         <!-- BOTÓN PAGO -->
                         <form action="<?= BASE_URL ?>/checkout" method="POST">
+                            <?= \App\Core\Session::csrfField() ?>
                             <button type="submit" style="width: 100%; background: #00b050; color: white; border: none; border-radius: 14px; padding: 18px; font-size: 15px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 6px -1px rgba(0, 176, 80, 0.2);" onmouseover="this.style.background='#008c3d'" onmouseout="this.style.background='#00b050'">
                                 Tramitar Pedido <i class="fa-solid fa-arrow-right-long"></i>
                             </button>

@@ -50,6 +50,7 @@
                         </a>
                         <form action="<?= BASE_URL ?>/business/dashboard/services/<?= $s->id ?>/delete" method="POST"
                               onsubmit="return confirm('¿Eliminar este servicio?');">
+                            <?= \App\Core\Session::csrfField() ?>
                             <button type="submit"
                                 class="py-2 px-3 bg-white border border-red-200 text-red-600 font-bold text-sm rounded-xl hover:bg-red-50 transition-colors">
                                 <i class="fa-solid fa-trash"></i>
@@ -61,4 +62,4 @@
         </div>
     <?php endif; ?>
 </div>
-<?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>
+<?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>

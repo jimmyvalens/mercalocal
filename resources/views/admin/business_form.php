@@ -37,6 +37,7 @@ $icon = $isEdit ? 'fa-pen-to-square' : 'fa-store';
         </h2>
 
         <form action="<?= $actionUrl ?>" method="POST" class="space-y-6">
+            <?= \App\Core\Session::csrfField() ?>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <!-- Nombre del Comercio -->
@@ -46,21 +47,6 @@ $icon = $isEdit ? 'fa-pen-to-square' : 'fa-store';
                         value="<?= htmlspecialchars($business['nombre'] ?? '') ?>"
                         class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary transition-colors"
                         placeholder="Ej: Frutería Paco" />
-                </div>
-
-                <!-- Categoría -->
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Categoría *</label>
-                    <select name="categoria_id" required
-                        class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary transition-colors">
-                        <option value="">Selecciona una categoría...</option>
-                        <?php if (isset($categories)): foreach ($categories as $cat): ?>
-                                <option value="<?= $cat['id'] ?>" <?= (($business['categoria_id'] ?? '') == $cat['id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($cat['nombre']) ?>
-                                </option>
-                        <?php endforeach;
-                        endif; ?>
-                    </select>
                 </div>
 
                 <!-- ID del Usuario Propietario -->
@@ -99,15 +85,6 @@ $icon = $isEdit ? 'fa-pen-to-square' : 'fa-store';
                         <option value="1" <?= (($business['activo'] ?? 1) == 1) ? 'selected' : '' ?>>Activo (Visible)</option>
                         <option value="0" <?= (($business['activo'] ?? 1) == 0) ? 'selected' : '' ?>>Inactivo (Oculto)</option>
                     </select>
-                </div>
-
-                <!-- Dirección -->
-                <div class="sm:col-span-2">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Dirección Física</label>
-                    <input type="text" name="direccion"
-                        value="<?= htmlspecialchars($business['direccion'] ?? '') ?>"
-                        class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary transition-colors"
-                        placeholder="Calle, Número, Localidad..." />
                 </div>
 
                 <!-- Descripción -->

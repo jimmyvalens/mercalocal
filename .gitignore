@@ -4,7 +4,6 @@
 
 # Archivos de configuración locales y variables de entorno ocultas
 .env
-.env.example
 .env.local
 .env.*.local
 

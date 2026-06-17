@@ -16,8 +16,24 @@ class Session
     public static function start()
     {
         if (session_status() === PHP_SESSION_NONE) {
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => '/',
+                'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
             session_start();
         }
+    }
+
+    /**
+     * Regenera el identificador de sesión tras cambios de autenticación.
+     */
+    public static function regenerate()
+    {
+        self::start();
+        session_regenerate_id(true);
     }
 
     /**
@@ -114,5 +130,14 @@ class Session
             return false;
         }
         return hash_equals($_SESSION['csrf_token'], $token);
+    }
+
+    /**
+     * Devuelve el campo oculto CSRF listo para incluir en formularios POST.
+     */
+    public static function csrfField(): string
+    {
+        $token = htmlspecialchars(self::generateCsrfToken(), ENT_QUOTES, 'UTF-8');
+        return '<input type="hidden" name="csrf_token" value="' . $token . '">';
     }
 }
