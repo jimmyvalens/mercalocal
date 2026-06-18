@@ -113,6 +113,7 @@ $router->post('/admin/business/store', [AdminController::class, 'store']);
 $router->get('/admin/business/{id}/edit', [AdminController::class, 'edit']);
 $router->post('/admin/business/{id}/update', [AdminController::class, 'update']);
 $router->post('/admin/business/{id}/delete', [AdminController::class, 'delete']);
+$router->get('/api/users/search', [\App\Controllers\AdminController::class, 'apiSearch']);
 
 // CRUD de Productos delegado en el Administrador (se declaran ANTES del detalle dinámico)
 $router->get('/admin/business/{business_id}/product/create', [AdminController::class, 'createProduct']);

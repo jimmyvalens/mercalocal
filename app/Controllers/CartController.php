@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Controllers;
 
 // =========================================================
@@ -52,6 +53,12 @@ class CartController
      */
     public function add()
     {
+        if (Session::get('user_role') === 'ADMIN') {
+            // Redirigir al panel de admin con un error
+            Session::setFlash('error', 'Los administradores no pueden añadir productos al carrito.');
+            header("Location: " . BASE_URL . "/admin/dashboard?error=admin_cannot_buy");
+            exit;
+        }
 
         // Bloquear acceso al carrito para comercios
         if (Session::get('user_role') === 'BUSINESS') {

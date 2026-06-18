@@ -44,32 +44,29 @@ class AdminController
     }
 
     /**
-     * Listado completo de comercios con Buscador y Filtros dinámicos (GET /admin/businesses)
+     * Listado completo de comercios con Buscador, Filtros dinámicos y Paginación (GET /admin/businesses)
      */
     public function businesses()
     {
         $db = Database::getInstance()->getConnection();
+
+        // 1. Configuración de la paginación
+        $limit = 10; // Número de comercios por página
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        if ($page < 1) $page = 1;
 
         // Recoger filtros de la URL
         $search = trim($_GET['search'] ?? '');
         $status = $_GET['status'] ?? '';
         $category = $_GET['category'] ?? '';
 
-        // Consulta base
-        $sql = "SELECT b.*, u.nombre as owner_name, u.email as owner_email,
-                       COUNT(DISTINCT p.id) as product_count,
-                       COUNT(DISTINCT s.id) as service_count
-                FROM business b
-                JOIN user u ON b.user_id = u.id
-                LEFT JOIN product p ON p.business_id = b.id AND p.activo = 1
-                LEFT JOIN service s ON s.business_id = b.id AND s.activo = 1
-                WHERE 1=1";
-
+        // Construir la condición WHERE dinámica compartida
+        $whereSql = " WHERE 1=1";
         $params = [];
 
         // Filtro por término de búsqueda (Nombre, email o teléfono)
         if ($search !== '') {
-            $sql .= " AND (b.nombre LIKE ? OR b.email LIKE ? OR u.nombre LIKE ?)";
+            $whereSql .= " AND (b.nombre LIKE ? OR b.email LIKE ? OR u.nombre LIKE ?)";
             $searchTerm = "%$search%";
             $params[] = $searchTerm;
             $params[] = $searchTerm;
@@ -78,17 +75,44 @@ class AdminController
 
         // Filtro por Estado (Activo / Inactivo)
         if ($status !== '') {
-            $sql .= " AND b.activo = ?";
+            $whereSql .= " AND b.activo = ?";
             $params[] = ($status === 'active') ? 1 : 0;
         }
 
-        // Filtro por Categoría (Requiere relación con categorías en tabla intermedia o campo si existe)
+        // Filtro por Categoría
         if ($category !== '') {
-            $sql .= " AND b.id IN (SELECT DISTINCT business_id FROM product WHERE category_id = ?)";
+            $whereSql .= " AND b.id IN (SELECT DISTINCT business_id FROM product WHERE category_id = ?)";
             $params[] = $category;
         }
 
-        $sql .= " GROUP BY b.id ORDER BY b.created_at DESC";
+        // 2. OBTENER EL TOTAL DE REGISTROS (Esencial para calcular las páginas totales)
+        $countSql = "SELECT COUNT(DISTINCT b.id) FROM business b JOIN user u ON b.user_id = u.id" . $whereSql;
+        $countStmt = $db->prepare($countSql);
+        $countStmt->execute($params);
+        $totalRows = (int)$countStmt->fetchColumn();
+
+        // Calcular las páginas totales
+        $totalPages = ceil($totalRows / $limit);
+        if ($totalPages < 1) $totalPages = 1;
+
+        // Ajustar la página actual si el usuario escribe un número mayor al total de páginas
+        if ($page > $totalPages) $page = $totalPages;
+
+        // Calcular el desplazamiento (OFFSET) para la base de datos
+        $offset = ($page - 1) * $limit;
+
+        // 3. CONSULTA PRINCIPAL LIMITADA (Trae solo el bloque de la página actual)
+        $sql = "SELECT b.*, u.nombre as owner_name, u.email as owner_email,
+                       COUNT(DISTINCT p.id) as product_count,
+                       COUNT(DISTINCT s.id) as service_count
+                FROM business b
+                JOIN user u ON b.user_id = u.id
+                LEFT JOIN product p ON p.business_id = b.id AND p.activo = 1
+                LEFT JOIN service s ON s.business_id = b.id AND s.activo = 1"
+            . $whereSql
+            . " GROUP BY b.id 
+                   ORDER BY b.created_at DESC 
+                   LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
 
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
@@ -98,6 +122,8 @@ class AdminController
         $catStmt = $db->query("SELECT * FROM category ORDER BY nombre ASC");
         $categories = $catStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Requerimos la vista. Las variables $businesses, $categories, $page y $totalPages 
+        // bajan listas y limpias hacia businesses.php
         require_once ROOT_DIR . '/resources/views/admin/businesses.php';
     }
 
@@ -233,6 +259,8 @@ class AdminController
     public function edit($id)
     {
         $db = Database::getInstance()->getConnection();
+
+        // 1. Traemos el comercio
         $stmt = $db->prepare('SELECT * FROM business WHERE id = ?');
         $stmt->execute([$id]);
         $business = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -243,8 +271,15 @@ class AdminController
             exit;
         }
 
-        $stmtUsers = $db->query("SELECT id, nombre, email FROM user ORDER BY nombre ASC");
-        $users = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
+        // 🌟 NUEVO: Buscamos el nombre del propietario actual para que el formulario lo muestre rellenado
+        $stmtUser = $db->prepare('SELECT nombre, email FROM user WHERE id = ?');
+        $stmtUser->execute([$business['user_id']]);
+        $owner = $stmtUser->fetch(PDO::FETCH_ASSOC);
+
+        // Inyectamos el nombre en el array para la vista
+        $business['owner_name'] = $owner ? $owner['nombre'] . ' (' . $owner['email'] . ')' : 'Sin propietario asignado';
+
+        // 🗑️ NOTA: Hemos eliminado el SELECT masivo de la tabla user. ¡Mucho más eficiente!
 
         require_once ROOT_DIR . '/resources/views/admin/business_form.php';
     }
@@ -299,141 +334,121 @@ class AdminController
 
     public function delete($id)
     {
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('UPDATE business SET activo = 0 WHERE id = ?');
-        $stmt->execute([$id]);
-        Session::setFlash('success', 'Comercio deshabilitado correctamente.');
-        header('Location: ' . BASE_URL . '/admin/businesses');
-        exit;
-    }
+        // 1. Validación CSRF
+        if (($_POST['csrf_token'] ?? '') !== ($_SESSION['csrf_token'] ?? '')) {
+            die("Error: Token CSRF no válido.");
+        }
 
-    // =========================================================
-    // CRUD DE PRODUCTOS DELEGADO AL ADMINISTRADOR
-    // =========================================================
-
-    /**
-     * Muestra el formulario de creación de producto para un comercio
-     * GET /admin/business/{business_id}/product/create
-     */
-    public function createProduct($businessId)
-    {
         $db = Database::getInstance()->getConnection();
 
-        // Obtener categorías para el combo select
-        $stmt = $db->query("SELECT * FROM category ORDER BY nombre ASC");
-        $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        require_once ROOT_DIR . '/resources/views/admin/product_form.php';
-    }
-
-    /**
-     * Guarda el producto creado por el Admin
-     * POST /admin/business/{business_id}/product/store
-     */
-    public function storeProduct($businessId)
-    {
-        $nombre = trim($_POST['nombre'] ?? '');
-        $descripcion = trim($_POST['descripcion'] ?? '');
-        $precio = floatval($_POST['precio'] ?? 0);
-        $stock = max(0, (int)($_POST['stock'] ?? 0));
-        $category_id = $_POST['category_id'] ?? null;
-        $activo = (int)($_POST['activo'] ?? 0);
-        $imagePath = null;
-
-        $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/img/products');
         try {
-            if (!empty($_FILES['imagen']['tmp_name'])) {
-                $imagePath = $uploader->upload($_FILES['imagen'], 'prod_');
-                if ($imagePath) {
-                    $imagePath = basename($imagePath);
-                }
+            $db->beginTransaction();
+
+            // Antes de borrar, lanza esta consulta:
+            $stmt = $db->prepare("SELECT COUNT(*) FROM order_item ci 
+                      JOIN product p ON ci.product_id = p.id 
+                      WHERE p.business_id = ?");
+            $stmt->execute([$id]);
+            $count = $stmt->fetchColumn();
+
+            if ($count > 0) {
+                // Lanza un mensaje: "No se puede eliminar el comercio porque hay clientes con productos en el carrito"
+                Session::setFlash('error', 'No se puede eliminar el comercio porque hay clientes con productos en el carrito.');
             }
-        } catch (\Exception $e) {
-            Session::setFlash('error', $e->getMessage());
-            header('Location: ' . BASE_URL . "/admin/business/$businessId/product/create");
+
+            // 2. BORRAR RESERVAS Y SUS ITEMS
+            $db->prepare("DELETE FROM reservation WHERE business_id = ?")->execute([$id]);
+
+            $stmtGetServ = $db->prepare("SELECT id FROM service WHERE business_id = ?");
+            $stmtGetServ->execute([$id]);
+            $servicios = $stmtGetServ->fetchAll(PDO::FETCH_COLUMN);
+
+            if (!empty($servicios)) {
+                $placeholders = implode(',', array_fill(0, count($servicios), '?'));
+                $db->prepare("DELETE FROM reservation_item WHERE service_id IN ($placeholders)")->execute($servicios);
+            }
+
+            // 3. BORRAR ITEMS DE PEDIDOS (Order Items)
+            // Primero buscamos los productos del negocio para limpiar sus items de pedido
+            $stmtGetProd = $db->prepare("SELECT id FROM product WHERE business_id = ?");
+            $stmtGetProd->execute([$id]);
+            $productos = $stmtGetProd->fetchAll(PDO::FETCH_COLUMN);
+
+            if (!empty($productos)) {
+                $placeholdersProd = implode(',', array_fill(0, count($productos), '?'));
+                $db->prepare("DELETE FROM order_item WHERE product_id IN ($placeholdersProd)")->execute($productos);
+            }
+
+            // 4. BORRAR SERVICIOS Y PRODUCTOS
+            // Para servicios usamos el ID del comercio directamente
+            $db->prepare("DELETE FROM service WHERE business_id = ?")->execute([$id]);
+
+            // Para productos, también podemos usar el ID del comercio (más simple y seguro)
+            $db->prepare("DELETE FROM product WHERE business_id = ?")->execute([$id]);
+
+            // 5. FINALMENTE: Borrar el comercio
+            $stmtBusiness = $db->prepare("DELETE FROM business WHERE id = ?");
+            $stmtBusiness->execute([$id]);
+
+            $db->commit();
+            header("Location: " . BASE_URL . "/admin/businesses");
+            exit;
+        } catch (\PDOException $e) {
+            $db->rollBack();
+            die("Error al eliminar el comercio: " . $e->getMessage());
+        }
+    }
+
+    public function apiSearch()
+    {
+        // 1. Limpiamos cualquier espacio en blanco o eco previo para no romper el JSON
+        if (ob_get_length()) ob_clean();
+
+        // 2. Cabecera obligatoria para que el fetch() de JS entienda que recibe JSON
+        header('Content-Type: application/json; charset=utf-8');
+
+        // 3. Capturamos el parámetro 'q' de la URL
+        $query = $_GET['q'] ?? '';
+        $query = trim($query);
+
+        // Si viene vacío o es muy corto, devolvemos un array vacío rápido
+        if (strlen($query) < 2) {
+            echo json_encode([]);
             exit;
         }
 
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('INSERT INTO product (business_id, category_id, nombre, descripcion, precio, stock, activo, imagen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$businessId, $category_id, $nombre, $descripcion, $precio, $stock, $activo, $imagePath]);
+        try {
+            $db = \App\Core\Database::getInstance()->getConnection();
 
-        Session::setFlash('success', 'Producto agregado correctamente por el Administrador.');
-        header('Location: ' . BASE_URL . '/admin/business/' . $businessId);
-        exit;
-    }
+            // 1. Usamos marcadores únicos para evitar que PDO se confunda
+            $sql = "SELECT id, nombre, email 
+            FROM user 
+            WHERE nombre LIKE :nombre OR email LIKE :email 
+            LIMIT 10";
 
-    /**
-     * Muestra formulario de edición de un producto
-     * GET /admin/product/{id}/edit
-     */
-    public function editProduct($id)
-    {
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT * FROM product WHERE id = ?');
-        $stmt->execute([$id]);
-        $product = $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmt = $db->prepare($sql);
 
-        $categories = $db->query("SELECT * FROM category ORDER BY nombre ASC")->fetchAll(PDO::FETCH_ASSOC);
+            // Concatenamos los comodines % a la antigua usanza para asegurar compatibilidad total
+            $searchTerm = '%' . $query . '%';
 
-        require_once ROOT_DIR . '/resources/views/admin/product_form.php';
-    }
+            $stmt->execute([
+                'nombre' => $searchTerm,
+                'email'  => $searchTerm
+            ]);
 
-    /**
-     * Modifica el producto
-     * POST /admin/product/{id}/update
-     */
-    public function updateProduct($id)
-    {
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT * FROM product WHERE id = ?');
-        $stmt->execute([$id]);
-        $product = $stmt->fetch(PDO::FETCH_ASSOC);
+            $users = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-        $nombre = trim($_POST['nombre'] ?? $product['nombre']);
-        $descripcion = trim($_POST['descripcion'] ?? $product['descripcion']);
-        $precio = floatval($_POST['precio'] ?? $product['precio']);
-        $stock = max(0, (int)($_POST['stock'] ?? $product['stock']));
-        $category_id = $_POST['category_id'] ?? $product['category_id'];
-        $activo = (int)($_POST['activo'] ?? 0);
-        $imagePath = $product['imagen'] ?? null;
-
-        if (!empty($_FILES['imagen']['tmp_name'])) {
-            $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/img/products');
-            try {
-                $newImg = $uploader->upload($_FILES['imagen'], 'prod_');
-                if ($newImg) $imagePath = basename($newImg);
-            } catch (\Exception $e) {
-                Session::setFlash('error', $e->getMessage());
-                header('Location: ' . BASE_URL . "/admin/product/$id/edit");
-                exit;
-            }
+            echo json_encode($users);
+        } catch (\Exception $e) {
+            // Si hay un error de base de datos, enviamos un código 500 y el error estructurado
+            http_response_code(500);
+            echo json_encode([
+                'error' => 'Error interno del servidor',
+                'message' => $e->getMessage()
+            ]);
         }
 
-        $stmt = $db->prepare('UPDATE product SET nombre = ?, descripcion = ?, precio = ?, stock = ?, category_id = ?, activo = ?, imagen = ? WHERE id = ?');
-        $stmt->execute([$nombre, $descripcion, $precio, $stock, $category_id, $activo, $imagePath, $id]);
-
-        Session::setFlash('success', 'Producto actualizado correctamente.');
-        header('Location: ' . BASE_URL . '/admin/business/' . $product['business_id']);
-        exit;
-    }
-
-    /**
-     * Desactiva un producto (Soft Delete)
-     * POST /admin/product/{id}/delete
-     */
-    public function deleteProduct($id)
-    {
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT business_id FROM product WHERE id = ?');
-        $stmt->execute([$id]);
-        $product = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        $stmt = $db->prepare('UPDATE product SET activo = 0 WHERE id = ?');
-        $stmt->execute([$id]);
-
-        Session::setFlash('success', 'Producto deshabilitado por el administrador.');
-        header('Location: ' . BASE_URL . '/admin/business/' . $product['business_id']);
+        // Cortamos la ejecución para que PHP no intente renderizar ninguna vista encima
         exit;
     }
 }

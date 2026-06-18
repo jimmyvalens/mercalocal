@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Models/Business.php — Modelo de comercio
+// app/Models/Business.php — Modelo de comercio
 // Representa un negocio registrado en la plataforma.
 // Gestiona la lectura de datos de la tabla `business`
 // y provee métodos para obtener sus productos, servicios

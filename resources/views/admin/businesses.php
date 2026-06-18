@@ -3,13 +3,21 @@
 /**
  * @var array $businesses Array de comercios con información del propietario
  * @var array $categories Array de categorías para el filtro
+ * @var int $page Página actual (enviada desde el Controlador)
+ * @var int $totalPages Total de páginas calculadas (enviada desde el Controlador)
  */
 require_once ROOT_DIR . '/resources/views/main_header.php';
+
+// Aseguramos valores por defecto para que no falle si aún no se pasan desde el controlador
+$page = $page ?? 1;
+$totalPages = $totalPages ?? 1;
+$totalRows = $totalRows ?? count($businesses);
 ?>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row gap-8">
 
-    <!-- Sidebar Admin -->
     <div class="w-full md:w-64 shrink-0">
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-24">
             <div class="flex items-center gap-3 mb-6 pb-6 border-b border-gray-100">
@@ -46,11 +54,11 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center hover:shadow-md transition-shadow">
-                <p class="text-sm font-medium text-gray-500 mb-2">Comercios Totales</p>
+                <p class="text-sm font-medium text-gray-500 mb-2">Comercios en Página</p>
                 <p class="text-3xl font-bold text-gray-900"><?= count($businesses) ?></p>
             </div>
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center hover:shadow-md transition-shadow">
-                <p class="text-sm font-medium text-gray-500 mb-2">Comercios Activos</p>
+                <p class="text-sm font-medium text-gray-500 mb-2">Comercios Activos (Pág.)</p>
                 <p class="text-3xl font-bold text-green-600"><?= count(array_filter($businesses, fn($b) => $b['activo'] == 1)) ?></p>
             </div>
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center hover:shadow-md transition-shadow">
@@ -176,7 +184,8 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                                                 class="inline-flex items-center justify-center w-8 h-8 bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white rounded-lg transition-colors shadow-sm" title="Editar">
                                                 <i class="fa-solid fa-pen-to-square"></i>
                                             </a>
-                                            <form action="<?= BASE_URL ?>/admin/business/<?= $business['id'] ?>/delete" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas eliminar (desactivar) este comercio?');">
+
+                                            <form action="<?= BASE_URL ?>/admin/business/<?= $business['id'] ?>/delete" method="POST" class="inline-block form-eliminar">
                                                 <?= \App\Core\Session::csrfField() ?>
                                                 <button type="submit" class="inline-flex items-center justify-center w-8 h-8 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition-colors shadow-sm" title="Eliminar">
                                                     <i class="fa-solid fa-trash"></i>
@@ -191,7 +200,79 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                 </table>
             </div>
         </div>
+
+        <?php if ($totalPages > 1): ?>
+            <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4 rounded-2xl shadow-sm border border-gray-100">
+                <div class="flex flex-1 justify-between sm:hidden">
+                    <a href="?page=<?= max(1, $page - 1) ?><?= isset($_GET['search']) ? '&search=' . htmlspecialchars($_GET['search']) : '' ?><?= isset($_GET['status']) ? '&status=' . htmlspecialchars($_GET['status']) : '' ?><?= isset($_GET['category']) ? '&category=' . htmlspecialchars($_GET['category']) : '' ?>" class="relative inline-flex items-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Anterior</a>
+                    <a href="?page=<?= min($totalPages, $page + 1) ?><?= isset($_GET['search']) ? '&search=' . htmlspecialchars($_GET['search']) : '' ?><?= isset($_GET['status']) ? '&status=' . htmlspecialchars($_GET['status']) : '' ?><?= isset($_GET['category']) ? '&category=' . htmlspecialchars($_GET['category']) : '' ?>" class="relative ml-3 inline-flex items-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Siguiente</a>
+                </div>
+                <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-sm text-gray-700">
+                            Mostrando página <span class="font-bold text-gray-900"><?= $page ?></span> de <span class="font-bold text-gray-900"><?= $totalPages ?></span> páginas.
+                        </p>
+                    </div>
+                    <div>
+                        <nav class="isolate inline-flex -space-x-px rounded-xl shadow-sm bg-white border border-gray-200 overflow-hidden" aria-label="Pagination">
+                            <a href="?page=<?= max(1, $page - 1) ?><?= isset($_GET['search']) ? '&search=' . htmlspecialchars($_GET['search']) : '' ?><?= isset($_GET['status']) ? '&status=' . htmlspecialchars($_GET['status']) : '' ?><?= isset($_GET['category']) ? '&category=' . htmlspecialchars($_GET['category']) : '' ?>" class="relative inline-flex items-center px-3 py-2 text-gray-400 hover:bg-gray-50 border-r border-gray-200 <?= ($page <= 1) ? 'pointer-events-none opacity-40' : '' ?>">
+                                <i class="fa-solid fa-chevron-left text-xs"></i>
+                            </a>
+
+                            <?php for ($i = 1; $i <= $totalPages; $i++):
+                                // Mantenemos los filtros activos en la URL al cambiar de página
+                                $urlParams = "?page=" . $i;
+                                if (!empty($_GET['search'])) $urlParams .= "&search=" . urlencode($_GET['search']);
+                                if (!empty($_GET['status'])) $urlParams .= "&status=" . urlencode($_GET['status']);
+                                if (!empty($_GET['category'])) $urlParams .= "&category=" . urlencode($_GET['category']);
+                            ?>
+                                <a href="<?= $urlParams ?>" class="relative inline-flex items-center px-4 py-2 text-sm font-semibold border-r border-gray-200 <?= ($i === $page) ? 'z-10 bg-blue-600 text-white' : 'text-gray-900 hover:bg-gray-50' ?>">
+                                    <?= $i ?>
+                                </a>
+                            <?php endfor; ?>
+
+                            <a href="?page=<?= min($totalPages, $page + 1) ?><?= isset($_GET['search']) ? '&search=' . htmlspecialchars($_GET['search']) : '' ?><?= isset($_GET['status']) ? '&status=' . htmlspecialchars($_GET['status']) : '' ?><?= isset($_GET['category']) ? '&category=' . htmlspecialchars($_GET['category']) : '' ?>" class="relative inline-flex items-center px-3 py-2 text-gray-400 hover:bg-gray-50 <?= ($page >= $totalPages) ? 'pointer-events-none opacity-40' : '' ?>">
+                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                            </a>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.form-eliminar').forEach(formulario => {
+            formulario.addEventListener('submit', function(e) {
+                // 1. Frenamos el envío automático inmediato
+                e.preventDefault();
+
+                // 2. Desplegamos la alerta corporativa
+                Swal.fire({
+                    title: '¿Estás seguro de eliminar el comercio?',
+                    text: "Esta acción no se puede deshacer",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444', // Rojo Tailwind
+                    cancelButtonColor: '#3b82f6', // Azul Tailwind
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    background: '#ffffff',
+                    customClass: {
+                        popup: 'rounded-2xl border border-gray-100 shadow-xl'
+                    }
+                }).then((result) => {
+                    // 3. Si confirma, lanzamos el submit real manteniendo el token CSRF intacto
+                    if (result.isConfirmed) {
+                        formulario.submit();
+                    }
+                });
+            });
+        });
+    });
+</script>
 
 <?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>
