@@ -204,24 +204,33 @@ class AdminController
     }
 
     /**
-     * Guarda un nuevo comercio en la base de datos de manera consistente.
+     * Guarda un nuevo comercio y su dirección asociada.
      * POST /admin/business/store
      */
     public function store()
     {
+        // 1. Validación CSRF
+        if (($_POST['csrf_token'] ?? '') !== ($_SESSION['csrf_token'] ?? '')) {
+            die("Token no válido");
+        }
+
+        // 2. Recogida de datos del formulario
         $nombre = trim($_POST['nombre'] ?? '');
         $descripcion = trim($_POST['descripcion'] ?? '');
         $telefono = trim($_POST['telefono'] ?? '');
         $email = trim($_POST['email'] ?? '');
         $web = trim($_POST['web'] ?? '');
-        $user_id = $_POST['user_id'] ?? null; // Forzar asignación de propietario
+        $user_id = $_POST['user_id'] ?? null;
         $activo = isset($_POST['activo']) ? 1 : 0;
 
-        // Si el admin no selecciona dueño, se auto-asigna de forma temporal o por defecto
-        if (!$user_id) {
-            $user_id = Session::get('user_id') ?? 1;
-        }
+        // Datos de dirección
+        $calle = trim($_POST['calle'] ?? '');
+        $numero = trim($_POST['numero'] ?? '');
+        $codigo_postal = trim($_POST['codigo_postal'] ?? '');
+        $ciudad = trim($_POST['ciudad'] ?? '');
+        $provincia = trim($_POST['provincia'] ?? '');
 
+        // 3. Gestión de archivos
         $logoPath = null;
         $heroPath = null;
         $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/uploads/businesses');
@@ -239,29 +248,62 @@ class AdminController
             exit;
         }
 
-        // Si se solicita vista previa y no persistencia real inmediata
-        if (isset($_POST['is_preview']) && $_POST['is_preview'] == '1') {
-            // Se guardan los datos en flash para renderizarlos en una capa modal/mockup
-            Session::setFlash('preview_business', $_POST);
-            header('Location: ' . BASE_URL . '/admin/business/create?preview=true');
+        // 4. Transacción (Creación atómica)
+        $db = Database::getInstance()->getConnection();
+
+        try {
+            $db->beginTransaction();
+
+            // A) Insertar Dirección primero
+            $stmtAddr = $db->prepare("
+                INSERT INTO address (calle, numero, codigo_postal, ciudad, provincia) 
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmtAddr->execute([$calle, $numero, $codigo_postal, $ciudad, $provincia]);
+            $addressId = $db->lastInsertId();
+
+            // B) Insertar Negocio
+            $stmtBus = $db->prepare("
+                INSERT INTO business (nombre, descripcion, telefono, email, web, user_id, activo, logo_path, hero_path) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmtBus->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath]);
+            $businessId = $db->lastInsertId();
+
+            // C) Insertar en tabla pivote para unir ambos
+            $stmtPivot = $db->prepare("
+                INSERT INTO business_address (business_id, address_id) 
+                VALUES (?, ?)
+            ");
+            $stmtPivot->execute([$businessId, $addressId]);
+
+            $db->commit();
+
+            Session::setFlash('success', 'Comercio creado correctamente con su ubicación.');
+            header('Location: ' . BASE_URL . '/admin/businesses');
+            exit;
+        } catch (\Exception $e) {
+            $db->rollBack();
+            // Limpiar archivos si se subieron pero la DB falló
+            // (Opcional, pero recomendado si quieres ser muy estricto)
+            Session::setFlash('error', 'Error al crear el comercio: ' . $e->getMessage());
+            header('Location: ' . BASE_URL . '/admin/business/create');
             exit;
         }
-
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('INSERT INTO business (nombre, descripcion, telefono, email, web, user_id, activo, logo_path, hero_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath]);
-
-        Session::setFlash('success', 'Comercio creado correctamente.');
-        header('Location: ' . BASE_URL . '/admin/businesses');
-        exit;
     }
 
     public function edit($id)
     {
         $db = Database::getInstance()->getConnection();
 
-        // 1. Traemos el comercio
-        $stmt = $db->prepare('SELECT * FROM business WHERE id = ?');
+        // Usamos LEFT JOIN para que, aunque el negocio no tenga dirección (casos antiguos), no falle
+        $stmt = $db->prepare('
+        SELECT b.*, a.calle, a.numero, a.codigo_postal, a.ciudad, a.provincia 
+        FROM business b
+        LEFT JOIN business_address ba ON b.id = ba.business_id
+        LEFT JOIN address a ON ba.address_id = a.id
+        WHERE b.id = ?
+    ');
         $stmt->execute([$id]);
         $business = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -271,52 +313,59 @@ class AdminController
             exit;
         }
 
-        // 🌟 NUEVO: Buscamos el nombre del propietario actual para que el formulario lo muestre rellenado
+        // Buscamos el propietario
         $stmtUser = $db->prepare('SELECT nombre, email FROM user WHERE id = ?');
         $stmtUser->execute([$business['user_id']]);
         $owner = $stmtUser->fetch(PDO::FETCH_ASSOC);
-
-        // Inyectamos el nombre en el array para la vista
-        $business['owner_name'] = $owner ? $owner['nombre'] . ' (' . $owner['email'] . ')' : 'Sin propietario asignado';
-
-        // 🗑️ NOTA: Hemos eliminado el SELECT masivo de la tabla user. ¡Mucho más eficiente!
+        $business['owner_name'] = $owner ? $owner['nombre'] . ' (' . $owner['email'] . ')' : 'Sin propietario';
 
         require_once ROOT_DIR . '/resources/views/admin/business_form.php';
     }
 
+    /**
+     * Actualiza un comercio y su dirección asociada.
+     * POST /admin/business/{id}/update
+     */
     public function update($id)
     {
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT * FROM business WHERE id = ?');
-        $stmt->execute([$id]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$business) {
-            Session::setFlash('error', 'Comercio no encontrado.');
-            header('Location: ' . BASE_URL . '/admin/businesses');
-            exit;
+        // 1. Validación CSRF
+        if (($_POST['csrf_token'] ?? '') !== ($_SESSION['csrf_token'] ?? '')) {
+            die("Token no válido");
         }
 
-        $nombre = trim($_POST['nombre'] ?? $business['nombre']);
-        $descripcion = trim($_POST['descripcion'] ?? $business['descripcion']);
-        $telefono = trim($_POST['telefono'] ?? $business['telefono']);
-        $email = trim($_POST['email'] ?? $business['email']);
-        $web = trim($_POST['web'] ?? $business['web']);
-        $user_id = $_POST['user_id'] ?? $business['user_id'];
+        // 2. Recogida de datos del formulario
+        $nombre = trim($_POST['nombre'] ?? '');
+        $descripcion = trim($_POST['descripcion'] ?? '');
+        $telefono = trim($_POST['telefono'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $web = trim($_POST['web'] ?? '');
+        $user_id = $_POST['user_id'] ?? null;
         $activo = isset($_POST['activo']) ? 1 : 0;
 
-        $logoPath = $business['logo_path'];
-        $heroPath = $business['hero_path'];
+        $calle = trim($_POST['calle'] ?? '');
+        $numero = trim($_POST['numero'] ?? '');
+        $codigo_postal = trim($_POST['codigo_postal'] ?? '');
+        $ciudad = trim($_POST['ciudad'] ?? '');
+        $provincia = trim($_POST['provincia'] ?? '');
+
+        // 3. Gestión de archivos (solo si se suben nuevos)
         $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/uploads/businesses');
+
+        // Obtenemos los paths actuales para no perderlos si no se sube imagen nueva
+        $db = Database::getInstance()->getConnection();
+        $stmtCurrent = $db->prepare("SELECT logo_path, hero_path FROM business WHERE id = ?");
+        $stmtCurrent->execute([$id]);
+        $currentImages = $stmtCurrent->fetch(PDO::FETCH_ASSOC);
+
+        $logoPath = $currentImages['logo_path'] ?? null;
+        $heroPath = $currentImages['hero_path'] ?? null;
 
         try {
             if (!empty($_FILES['logo']['tmp_name'])) {
-                $newLogo = $uploader->upload($_FILES['logo'], 'logo_');
-                if ($newLogo) $logoPath = $newLogo;
+                $logoPath = $uploader->upload($_FILES['logo'], 'logo_');
             }
             if (!empty($_FILES['hero']['tmp_name'])) {
-                $newHero = $uploader->upload($_FILES['hero'], 'hero_');
-                if ($newHero) $heroPath = $newHero;
+                $heroPath = $uploader->upload($_FILES['hero'], 'hero_');
             }
         } catch (\Exception $e) {
             Session::setFlash('error', $e->getMessage());
@@ -324,12 +373,51 @@ class AdminController
             exit;
         }
 
-        $stmt = $db->prepare('UPDATE business SET nombre = ?, descripcion = ?, telefono = ?, email = ?, web = ?, user_id = ?, activo = ?, logo_path = ?, hero_path = ? WHERE id = ?');
-        $stmt->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath, $id]);
+        // 4. Transacción
+        try {
+            $db->beginTransaction();
 
-        Session::setFlash('success', 'Comercio actualizado correctamente.');
-        header('Location: ' . BASE_URL . '/admin/businesses');
-        exit;
+            // A) Actualizar el Negocio
+            $stmtBus = $db->prepare("
+                UPDATE business 
+                SET nombre = ?, descripcion = ?, telefono = ?, email = ?, web = ?, user_id = ?, activo = ?, logo_path = ?, hero_path = ? 
+                WHERE id = ?
+            ");
+            $stmtBus->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath, $id]);
+
+            // B) Localizar la dirección asociada y actualizarla
+            $stmtGetAddr = $db->prepare("SELECT address_id FROM business_address WHERE business_id = ?");
+            $stmtGetAddr->execute([$id]);
+            $addressId = $stmtGetAddr->fetchColumn();
+
+            if ($addressId) {
+                $stmtAddr = $db->prepare("
+                    UPDATE address 
+                    SET calle = ?, numero = ?, codigo_postal = ?, ciudad = ?, provincia = ? 
+                    WHERE id = ?
+                ");
+                $stmtAddr->execute([$calle, $numero, $codigo_postal, $ciudad, $provincia, $addressId]);
+            } else {
+                // Si por alguna razón no existía dirección (caso raro), la insertamos
+                $stmtNewAddr = $db->prepare("INSERT INTO address (calle, numero, codigo_postal, ciudad, provincia) VALUES (?, ?, ?, ?, ?)");
+                $stmtNewAddr->execute([$calle, $numero, $codigo_postal, $ciudad, $provincia]);
+                $newAddrId = $db->lastInsertId();
+
+                $stmtPivot = $db->prepare("INSERT INTO business_address (business_id, address_id) VALUES (?, ?)");
+                $stmtPivot->execute([$id, $newAddrId]);
+            }
+
+            $db->commit();
+
+            Session::setFlash('success', 'Comercio actualizado correctamente.');
+            header('Location: ' . BASE_URL . '/admin/businesses');
+            exit;
+        } catch (\Exception $e) {
+            $db->rollBack();
+            Session::setFlash('error', 'Error al actualizar: ' . $e->getMessage());
+            header('Location: ' . BASE_URL . '/admin/business/' . $id . '/edit');
+            exit;
+        }
     }
 
     public function delete($id)
