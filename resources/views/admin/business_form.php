@@ -13,7 +13,13 @@ $business = $business ?? [
     'activo' => 1,
     'logo_path' => '',
     'hero_path' => '',
-    'owner_name' => '' // Añadimos esto para mostrar el nombre del dueño actual al editar
+    'owner_name' => '',
+    // Nuevos campos
+    'calle' => '',
+    'numero' => '',
+    'codigo_postal' => '',
+    'ciudad' => '',
+    'provincia' => ''
 ];
 
 $isEdit = !empty($business['id']);
@@ -121,6 +127,33 @@ $actionUrl = $isEdit ? BASE_URL . '/admin/business/' . $business['id'] . '/updat
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Descripción Comercial</label>
                     <textarea id="descripcion" name="descripcion" rows="3" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] outline-none text-sm transition"><?php echo htmlspecialchars($business['descripcion']); ?></textarea>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mt-6">Datos de Ubicación</label>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Calle</label>
+                        <input type="text" name="calle" required value="<?php echo htmlspecialchars($business['calle'] ?? ''); ?>" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] outline-none text-sm transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Número</label>
+                        <input type="text" name="numero" value="<?php echo htmlspecialchars($business['numero'] ?? ''); ?>" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] outline-none text-sm transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Código Postal</label>
+                        <input type="text" name="codigo_postal" required value="<?php echo htmlspecialchars($business['codigo_postal'] ?? ''); ?>" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] outline-none text-sm transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Ciudad</label>
+                        <input type="text" name="ciudad" required value="<?php echo htmlspecialchars($business['ciudad'] ?? ''); ?>" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] outline-none text-sm transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Provincia</label>
+                        <input type="text" name="provincia" required value="<?php echo htmlspecialchars($business['provincia'] ?? ''); ?>" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] outline-none text-sm transition">
+                    </div>
                 </div>
             </div>
 
