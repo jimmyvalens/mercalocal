@@ -25,15 +25,13 @@
         <form class="mt-8 space-y-6" action="/login" method="POST">
             <!-- CSRF token para proteger el login -->
             <input type="hidden" name="csrf_token" value="<?= \App\Core\Session::generateCsrfToken() ?>">
-            <div class="space-y-4 rounded-md shadow-sm">
-                <div>
-                    <label for="identificador" class="block text-sm font-bold text-gray-700 mb-1">Email o Teléfono</label>
-                    <input id="identificador" name="identificador" type="text" required class="appearance-none rounded-xl relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-primary bg-gray-50" placeholder="Correo electrónico o teléfono">
-                </div>
-                <div>
-                    <label for="password" class="block text-sm font-bold text-gray-700 mb-1">Contraseña</label>
-                    <input id="password" name="password" type="password" required class="appearance-none rounded-xl relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-primary bg-gray-50" placeholder="••••••••">
-                </div>
+            <div>
+                <label for="identificador" class="block text-sm font-bold text-gray-700 mb-1">Email o Teléfono</label>
+                <input id="identificador" name="identificador" type="text" required class="appearance-none rounded-xl relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-primary bg-gray-50" placeholder="Correo electrónico o teléfono">
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-bold text-gray-700 mb-1">Contraseña</label>
+                <input id="password" name="password" type="password" required class="appearance-none rounded-xl relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-primary bg-gray-50" placeholder="••••••••">
             </div>
             <div>
                 <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-primary hover:bg-orange-600 transition-all">Entrar</button>

@@ -18,6 +18,7 @@
         </div>
 
         <form action="<?= isset($service) ? BASE_URL . '/business/dashboard/services/' . $service->id . '/update' : BASE_URL . '/business/dashboard/services/store' ?>" method="POST" class="p-8 space-y-6">
+            <?= \App\Core\Session::csrfField() ?>
             <div class="grid grid-cols-1 gap-6">
                 <!-- Nombre -->
                 <div>

@@ -97,6 +97,7 @@ class AuthController
         // Buscar el usuario por email o teléfono y verificar la contraseña
         $user = User::findByIdentifier($identificador);
         if ($user && password_verify($password, $user->password_hash)) {
+            Session::regenerate();
             // Reset attempts on success
             Session::set($attemptsKey, 0);
             // Guardar datos del usuario en la sesión
@@ -274,6 +275,7 @@ class AuthController
         // ── Sin errores: crear usuario ──────────────────────────────────
         try {
             $userId = User::create($data);
+            Session::regenerate();
             Session::set('user_id', $userId);
             Session::set('user_role', $data['rol']);
             Session::set('user_name', $data['nombre']);

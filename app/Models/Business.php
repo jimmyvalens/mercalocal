@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Models/Business.php — Modelo de comercio
+// app/Models/Business.php — Modelo de comercio
 // Representa un negocio registrado en la plataforma.
 // Gestiona la lectura de datos de la tabla `business`
 // y provee métodos para obtener sus productos, servicios
@@ -160,7 +160,7 @@ class Business
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare(
-            "SELECT s.*, c.nombre as category_name
+            "SELECT s.*, s.duracion_minutos AS duracion, c.nombre as category_name
              FROM service s
              LEFT JOIN category c ON s.category_id = c.id
              WHERE s.business_id = ? AND s.activo = 1"

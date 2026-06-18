@@ -18,6 +18,7 @@
         </div>
 
         <form action="<?= BASE_URL ?>/business/dashboard/settings/update" method="POST" class="p-8 space-y-6">
+            <?= \App\Core\Session::csrfField() ?>
             <div class="grid grid-cols-1 gap-6">
                 <!-- Nombre -->
                 <div>

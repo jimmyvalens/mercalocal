@@ -19,6 +19,7 @@
         </h2>
         <form action="<?= BASE_URL ?>/business/dashboard/schedules/store" method="POST"
               class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+            <?= \App\Core\Session::csrfField() ?>
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-2">Día</label>
                 <select name="dia_semana"
@@ -78,6 +79,7 @@
                             <td class="px-6 py-4 text-right">
                                 <form action="<?= BASE_URL ?>/business/dashboard/schedules/<?= $sch->id ?>/delete"
                                       method="POST" onsubmit="return confirm('¿Eliminar este horario?');">
+                                    <?= \App\Core\Session::csrfField() ?>
                                     <button type="submit"
                                         class="py-1.5 px-3 bg-white border border-red-200 text-red-600 font-bold text-xs rounded-lg hover:bg-red-50 transition-colors">
                                         <i class="fa-solid fa-trash mr-1"></i> Eliminar
@@ -91,4 +93,4 @@
         </div>
     <?php endif; ?>
 </div>
-<?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>
+<?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>

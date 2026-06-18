@@ -16,7 +16,15 @@ class UserController
 {
     public function __construct()
     {
-        \App\Core\Middleware::requireRole('USER');
+        \App\Core\Middleware::requireAuth();
+    }
+
+    private function requireUserRole()
+    {
+        if (Session::get('user_role') !== 'USER') {
+            header('Location: ' . BASE_URL . '/');
+            exit;
+        }
     }
 
     /**
@@ -24,12 +32,19 @@ class UserController
      */
     public function dashboard()
     {
+        $this->requireUserRole();
+
         if (!Session::get('user_id')) {
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
 
         $user = User::findById(Session::get('user_id'));
+        if (!$user) {
+            Session::destroy();
+            header('Location: ' . BASE_URL . '/login');
+            exit;
+        }
 
         $db = Database::getInstance()->getConnection();
 
@@ -87,6 +102,11 @@ class UserController
 
         // Cargar los datos del usuario desde la BD
         $user = User::findById(Session::get('user_id'));
+        if (!$user) {
+            Session::destroy();
+            header('Location: ' . BASE_URL . '/login');
+            exit;
+        }
         require_once ROOT_DIR . '/resources/views/user/profile.php';
     }
 
@@ -102,6 +122,11 @@ class UserController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = User::findById(Session::get('user_id'));
+            if (!$user) {
+                Session::destroy();
+                header('Location: ' . BASE_URL . '/login');
+                exit;
+            }
 
             $data = [
                 'nombre' => trim($_POST['nombre'] ?? ''),
@@ -153,7 +178,11 @@ class UserController
             }
 
             $updateResult = $user->update($data);
-            file_put_contents(ROOT_DIR . '/scratch_log.txt', "Update result: " . var_export($updateResult, true) . "\nData: " . print_r($data, true), FILE_APPEND);
+            if (!$updateResult) {
+                Session::setFlash('error', 'No se pudo actualizar el perfil. Inténtalo de nuevo.');
+                header('Location: ' . BASE_URL . '/profile');
+                exit;
+            }
 
             Session::setFlash('success', 'Perfil actualizado correctamente.');
             header('Location: ' . BASE_URL . '/profile');
@@ -169,6 +198,8 @@ class UserController
      */
     public function orders()
     {
+        $this->requireUserRole();
+
         if (!Session::get('user_id')) {
             header('Location: ' . BASE_URL . '/login');
             exit;
@@ -221,6 +252,8 @@ class UserController
      */
     public function apiNotifications()
     {
+        $this->requireUserRole();
+
         if (!Session::get('user_id')) {
             http_response_code(401);
             exit;

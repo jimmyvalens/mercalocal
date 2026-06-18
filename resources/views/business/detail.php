@@ -69,6 +69,7 @@
                                 </div>
                                 <div class="p-4 bg-gray-50 border-t border-gray-100">
                                     <form action="<?= BASE_URL ?>/cart/add" method="POST" class="flex gap-3">
+                                        <?= \App\Core\Session::csrfField() ?>
                                         <input type="hidden" name="product_id" value="<?= $p['id'] ?>">
                                         <input type="number" name="cantidad" value="1" min="1" max="<?= $p['stock'] ?>" class="block w-24 rounded-xl border-gray-300 py-2.5 px-3 text-gray-900 border text-sm">
                                         <button type="submit" class="w-full justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-bold text-white bg-primary hover:bg-orange-600 transition-colors">Añadir</button>

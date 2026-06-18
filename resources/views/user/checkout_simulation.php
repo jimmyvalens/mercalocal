@@ -28,6 +28,7 @@
         </div>
 
         <form action="<?= BASE_URL ?>/checkout/confirm" method="POST">
+            <?= \App\Core\Session::csrfField() ?>
             <button type="submit" style="width: 100%; background: #00b050; color: white; border: none; border-radius: 16px; padding: 20px; font-size: 17px; font-weight: 900; cursor: pointer; transition: 0.3s; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 10px 15px -3px rgba(0, 176, 80, 0.2);" onmouseover="this.style.background='#008c3d'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#00b050'; this.style.transform='translateY(0)'">
                 Confirmar y Pagar
             </button>

@@ -1,7 +1,23 @@
-<?php require_once ROOT_DIR . '/resources/views/main_header.php'; ?>
+<?php
+$user = $user ?? \App\Models\User::findById(\App\Core\Session::get('user_id'));
+if (!$user) {
+    \App\Core\Session::destroy();
+    header('Location: ' . BASE_URL . '/login');
+    exit;
+}
+
+$role = strtoupper($user->rol ?? '');
+$dashboardPath = match ($role) {
+    'ADMIN' => 'admin/dashboard',
+    'BUSINESS' => 'business/dashboard',
+    default => 'user/dashboard',
+};
+
+require_once ROOT_DIR . '/resources/views/main_header.php';
+?>
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
     <div class="flex items-center gap-4 mb-8 border-b border-gray-100 pb-4">
-        <a href="<?= BASE_URL ?>/<?= $user->rol === 'admin' ? 'admin' : ($user->rol === 'business' ? 'business' : 'user') ?>/dashboard" class="text-gray-500 hover:text-primary transition-colors flex items-center gap-2">
+        <a href="<?= BASE_URL ?>/<?= $dashboardPath ?>" class="text-gray-500 hover:text-primary transition-colors flex items-center gap-2">
             <i class="fa-solid fa-arrow-left"></i> Volver al panel
         </a>
         <div class="flex-1 min-w-0">
@@ -13,6 +29,7 @@
 
     <div class="bg-white shadow-sm overflow-hidden sm:rounded-2xl border border-gray-100 p-8 max-w-3xl">
         <form class="space-y-6 flex flex-col items-center sm:items-stretch" action="<?= BASE_URL ?>/user/profile/update" method="POST" enctype="multipart/form-data">
+            <?= \App\Core\Session::csrfField() ?>
             <div class="flex flex-col sm:flex-row items-center gap-6 mb-8 justify-center sm:justify-start">
                 <div class="relative cursor-pointer w-24 h-24 flex-shrink-0" id="avatar-container">
                     <?php if (!empty($user->imagen)): ?>
