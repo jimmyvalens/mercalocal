@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Models/Service.php — Modelo de servicio para comercios
+// app/Models/Service.php — Modelo de servicio para comercios
 // =========================================================
 namespace App\Models;
 
@@ -20,6 +20,8 @@ class Service
     public $activo;
     public $created_at;
     public $category_name;
+
+    public $imagen;
 
     public static function findById($id)
     {

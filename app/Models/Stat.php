@@ -29,6 +29,36 @@ class Stat
     }
 
     /**
+     * 🏪 NUEVO: Obtiene las estadísticas específicas de un solo comercio.
+     * Filtra por el ID del comercio que está logueado en el Dashboard.
+     * * @param  int  $businessId  ID del comercio actual
+     * @return array
+     */
+    public static function getBusinessStats($businessId)
+    {
+        $db = Database::getInstance()->getConnection();
+        $stats = [];
+
+        // 1. Contar solo los productos de este comercio
+        $stmt = $db->prepare("SELECT count(*) as total FROM product WHERE business_id = ? AND activo = 1");
+        $stmt->execute([$businessId]);
+        $stats['products'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+
+        // 2. Contar solo los servicios de este comercio
+        $stmt = $db->prepare("SELECT count(*) as total FROM service WHERE business_id = ? AND activo = 1");
+        $stmt->execute([$businessId]);
+        $stats['services'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+
+        // 3. Contar los pedidos PENDIENTES reales de este comercio (el sustituto del '3')
+        // Nota: Ajusta 'PENDIENTE' si en tu base de datos usas minúsculas o el campo se llama distinto
+        $stmt = $db->prepare("SELECT count(*) as total FROM purchase WHERE business_id = ? AND estado = 'PENDIENTE'");
+        $stmt->execute([$businessId]);
+        $stats['pending_orders'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+
+        return $stats;
+    }
+
+    /**
      * 📊 NUEVO: Obtiene la evolución de facturación mensual del año actual.
      * Genera un mapa perfecto del mes 1 al 12 para alimentar gráficos en el Frontend (Chart.js).
      * @return array

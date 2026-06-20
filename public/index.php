@@ -1,4 +1,5 @@
 <?php
+ob_start();
 // ── Servidor PHP built-in: servir archivos estáticos directamente ─────────
 // Cuando se usa `php -S`, si el archivo solicitado existe en /public,
 // devolvemos false para que el servidor lo sirva sin pasar por el router.
@@ -135,6 +136,7 @@ $router->post('/business/dashboard/products/store', [BusinessDashboardController
 $router->get('/business/dashboard/products/{id}/edit', [BusinessDashboardController::class, 'productsEdit']);
 $router->post('/business/dashboard/products/{id}/update', [BusinessDashboardController::class, 'productsUpdate']);
 $router->post('/business/dashboard/products/{id}/delete', [BusinessDashboardController::class, 'productsDelete']);
+$router->post('/business/dashboard/orders/update-status', [BusinessDashboardController::class, 'updateStatus']);
 
 // Servicios (CRUD) dentro del panel de comercio
 $router->get('/business/dashboard/services', [BusinessDashboardController::class, 'servicesIndex']);

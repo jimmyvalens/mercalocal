@@ -183,7 +183,8 @@
                 position: isCartAddition ? 'top-end' : 'center',
                 icon: <?= json_encode($flashType === 'error' ? 'error' : ($flashType === 'success' ? 'success' : ($flashType === 'warning' ? 'warning' : 'info'))) ?>,
                 title: isCartAddition ? '' : <?= json_encode(ucfirst($flashType ?: '')) ?>,
-                text: <?= json_encode($flashMsg) ?>,
+                // Decodificamos las entidades HTML antes de pasarlo a JSON
+                text: <?= json_encode(html_entity_decode($flashMsg, ENT_QUOTES, 'UTF-8')) ?>,
                 timer: isCartAddition ? 3000 : 4000,
                 timerProgressBar: true,
                 showConfirmButton: false,

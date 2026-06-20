@@ -150,7 +150,7 @@ $totalRows = $totalRows ?? count($businesses);
                                     </td>
                                     <td class="px-6 py-4 text-gray-600 text-sm">
                                         <div class="flex flex-col">
-                                            <span><?= htmlspecialchars($business['owner_email']) ?></span>
+                                            <span><?= htmlspecialchars($business['owner_email'] ?? '') ?></span>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">

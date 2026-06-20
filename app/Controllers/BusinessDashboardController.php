@@ -2,10 +2,8 @@
 // =========================================================
 // src/Controllers/BusinessDashboardController.php
 // Controlador del panel de control privado del comercio.
-// Gestiona tres flujos diferenciados:
-//   · index()     — Panel principal con estadísticas, pedidos y reservas
-//   · setup()     — Formulario de configuración inicial del perfil
-//   · saveSetup() — Procesamiento y guardado del perfil del comercio
+// Gestiona el flujo de estadísticas, configuración, productos,
+// servicios y horarios del comercio.
 // =========================================================
 namespace App\Controllers;
 
@@ -17,58 +15,79 @@ class BusinessDashboardController
 {
     public function __construct()
     {
+        // Control de acceso centralizado: si no es BUSINESS, el middleware expulsa al usuario
         \App\Core\Middleware::requireRole('BUSINESS');
     }
 
     /**
-     * Muestra el panel de control del comercio (GET /business/dashboard).
-     * Requiere rol BUSINESS. Si el comercio no tiene perfil creado,
-     * redirige al asistente de configuración inicial.
+     * Extrae y verifica el perfil del comercio logueado.
+     * Si no existe, redirige automáticamente al asistente de configuración.
      */
-    public function index()
+    private function requireBusinessProfile()
     {
-        // Control de acceso: solo usuarios con rol BUSINESS
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-
-        $userId = Session::get('user_id');
         $db = Database::getInstance()->getConnection();
-
-        // Buscar el perfil de comercio vinculado al usuario actual
         $stmt = $db->prepare('SELECT * FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([$userId]);
+        $stmt->execute([Session::get('user_id')]);
         $business = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Si todavía no ha creado el perfil, redirigir al asistente
         if (!$business) {
             header('Location: ' . BASE_URL . '/business/setup');
             exit;
         }
 
+        return $business;
+    }
+
+    /**
+     * Muestra el panel principal con estadísticas rápidas, últimos pedidos y próximas reservas.
+     */
+    public function index()
+    {
+        $business = $this->requireBusinessProfile();
         $bid = $business['id'];
+        $db = Database::getInstance()->getConnection();
         $stats = [];
 
         // ── Estadísticas rápidas del panel ──
-
-        // Total de productos publicados
-        $stmt = $db->prepare('SELECT COUNT(*) as total FROM product WHERE business_id = ?');
+        $stmt = $db->prepare('SELECT COUNT(*) as total FROM product WHERE business_id = ? AND activo = 1');
         $stmt->execute([$bid]);
         $stats['products'] = (int)$stmt->fetch()['total'];
 
-        // Total de servicios publicados
-        $stmt = $db->prepare('SELECT COUNT(*) as total FROM service WHERE business_id = ?');
+        $stmt = $db->prepare('SELECT COUNT(*) as total FROM service WHERE business_id = ? AND activo = 1');
         $stmt->execute([$bid]);
         $stats['services'] = (int)$stmt->fetch()['total'];
 
-        // Total de reservas activas (excluye canceladas)
         $stmt = $db->prepare("SELECT COUNT(*) as total FROM reservation WHERE business_id = ? AND estado != 'CANCELADA'");
         $stmt->execute([$bid]);
         $stats['reservations'] = (int)$stmt->fetch()['total'];
 
-        // ── Últimos 5 pedidos recibidos que incluyan productos de este comercio ──
+        // 🌟 NUEVO 1: Contar los pedidos PENDIENTES reales de este comercio (adiós al '3' de la barra)
+        $stmt = $db->prepare(
+            "SELECT COUNT(DISTINCT p.id) as total 
+             FROM purchase p
+             JOIN order_item oi ON oi.purchase_id = p.id
+             JOIN product pr    ON pr.id = oi.product_id
+             WHERE pr.business_id = ? AND p.estado = 'PENDIENTE'"
+        );
+        $stmt->execute([$bid]);
+        $stats['pending_orders'] = (int)$stmt->fetch()['total'];
+
+        // 🌟 NUEVO 2: Calcular las Ventas Reales del Mes Actual para este comercio
+        $stmt = $db->prepare(
+            "SELECT SUM(oi.precio_unitario * oi.cantidad) as total_mes
+             FROM purchase p
+             JOIN order_item oi ON oi.purchase_id = p.id
+             JOIN product pr    ON pr.id = oi.product_id
+             WHERE pr.business_id = ? 
+               AND p.estado = 'PAGADO' 
+               AND MONTH(p.created_at) = MONTH(CURRENT_DATE()) 
+               AND YEAR(p.created_at) = YEAR(CURRENT_DATE())"
+        );
+        $stmt->execute([$bid]);
+        $stats['monthly_sales'] = (float)($stmt->fetch()['total_mes'] ?? 0);
+
+
+        // ── Últimos 5 pedidos recibidos ──
         $stmt = $db->prepare(
             "SELECT p.id, p.total, p.estado, p.created_at, u.nombre as client_name
              FROM purchase p
@@ -81,10 +100,9 @@ class BusinessDashboardController
         $stmt->execute([$bid]);
         $recentOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // ── Próximas 10 reservas pendientes desde hoy ──
+        // ── Próximas 10 reservas pendientes ──
         $stmt = $db->prepare(
-            "SELECT r.*, u.nombre as client_name, u.telefono as client_phone,
-                    s.nombre as service_name
+            "SELECT r.*, u.nombre as client_name, u.telefono as client_phone, s.nombre as service_name
              FROM reservation r
              JOIN user u ON u.id = r.user_id
              LEFT JOIN reservation_item ri ON ri.reservation_id = r.id
@@ -99,58 +117,103 @@ class BusinessDashboardController
     }
 
     /**
-     * Lista completa de pedidos que incluyen productos del comercio.
-     * GET /business/dashboard/orders
+     * Muestra el listado de pedidos del comercio aplicando los filtros del formulario.
      */
     public function orders()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
+        $bid = $business['id'];
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
+
+        // 1. Recogemos los filtros que vienen del formulario
+        $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+        $statusForm = isset($_GET['status']) ? trim($_GET['status']) : '';
+
+        // 🌟 TRADUCCIÓN COMPLETA: Mapeamos el HTML al ENUM exacto de la Base de Datos
+        $estado = '';
+        switch (strtolower($statusForm)) {
+            case 'pendiente':
+                $estado = 'PENDIENTE';
+                break;
+            case 'pagado':
+            case 'completado': // Por si en el HTML se llama 'completado'
+                $estado = 'PAGADO';
+                break;
+            case 'preparacion':
+            case 'en-preparacion':
+            case 'en_preparacion':
+                $estado = 'EN PREPARACION';
+                break;
+            case 'enviado':
+                $estado = 'ENVIADO';
+                break;
+            case 'entregado':
+                $estado = 'ENTREGADO';
+                break;
+            case 'cancelado':
+                $estado = 'CANCELADO';
+                break;
         }
 
+        // 2. Calculamos las estadísticas para que la barra lateral no falle
+        $stats = [];
         $stmt = $db->prepare(
-            "SELECT p.id, p.total, p.estado, p.created_at, u.nombre as client_name
+            "SELECT COUNT(DISTINCT p.id) as total 
              FROM purchase p
              JOIN order_item oi ON oi.purchase_id = p.id
              JOIN product pr    ON pr.id = oi.product_id
-             JOIN user u        ON u.id  = p.user_id
-             WHERE pr.business_id = ?
-             GROUP BY p.id ORDER BY p.created_at DESC"
+             WHERE pr.business_id = ? AND p.estado = 'PENDIENTE'"
         );
-        $stmt->execute([$business['id']]);
+        $stmt->execute([$bid]);
+        $stats['pending_orders'] = (int)$stmt->fetch()['total'];
+
+
+        // 3. Consulta BASE (Traer los pedidos del comercio)
+        $sql = "SELECT p.id, p.total, p.estado, p.created_at, u.nombre as client_name, u.telefono as client_phone
+                FROM purchase p
+                JOIN order_item oi ON oi.purchase_id = p.id
+                JOIN product pr    ON pr.id = oi.product_id
+                JOIN user u        ON u.id  = p.user_id
+                WHERE pr.business_id = :bid";
+
+        // Inicializamos el array de parámetros para la consulta preparada
+        $params = [':bid' => $bid];
+
+        // 4. FILTRO DINÁMICO: Si el usuario busca por Nombre o Teléfono
+        if ($search !== '') {
+            $sql .= " AND (u.nombre LIKE :search_name OR u.telefono LIKE :search_phone)";
+            $params[':search_name'] = "%" . $search . "%";
+            $params[':search_phone'] = "%" . $search . "%";
+        }
+
+        // 5. FILTRO DINÁMICO: Si el usuario selecciona un estado concreto
+        if ($estado !== '') {
+            $sql .= " AND p.estado = :estado";
+            $params[':estado'] = $estado;
+        }
+
+        // 6. Agrupamos y ordenamos (los más recientes primero)
+        $sql .= " GROUP BY p.id ORDER BY p.created_at DESC";
+
+        // 7. Ejecutamos la consulta final con todos sus filtros pasados de forma segura
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
         $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Cargamos la vista de pedidos pasando $orders, $stats, $search y $estado
         require_once ROOT_DIR . '/resources/views/business/orders.php';
     }
 
     /**
-     * Muestra el formulario de configuración inicial del comercio (GET /business/setup).
-     * Se muestra automáticamente cuando un comercio recién registrado
-     * todavía no tiene perfil creado en la tabla `business`.
-     * Si ya tiene perfil, se redirige directamente al panel.
+     * Asistente de configuración inicial (sólo si no tiene perfil creado aún).
      */
     public function setup()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-
-        // Comprobar si ya tiene un perfil creado para evitar duplicados
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
         $stmt->execute([Session::get('user_id')]);
+
         if ($stmt->fetch()) {
-            // Ya tiene perfil → ir al panel principal
             header('Location: ' . BASE_URL . '/business/dashboard');
             exit;
         }
@@ -158,61 +221,65 @@ class BusinessDashboardController
         require_once ROOT_DIR . '/resources/views/business/setup.php';
     }
 
-    // ---------- servicios ------------------------------------------------
-
-    public function servicesIndex()
+    /**
+     * Procesa y guarda el perfil inicial enviado por POST.
+     */
+    public function saveSetup()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
+        $nombre = trim($_POST['nombre'] ?? '');
+        $descripcion = trim($_POST['descripcion'] ?? '');
+        $telefono = trim($_POST['telefono'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $web = trim($_POST['web'] ?? '') ?: null;
+
+        if (empty($nombre) || empty($descripcion) || empty($telefono) || empty($email)) {
+            Session::setFlash('error', 'Por favor rellena todos los campos obligatorios.');
             header('Location: ' . BASE_URL . '/business/setup');
             exit;
         }
+
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare(
+            'INSERT INTO business (user_id, nombre, descripcion, telefono, email, web, activo)
+             VALUES (?, ?, ?, ?, ?, ?, 1)'
+        );
+        $stmt->execute([Session::get('user_id'), $nombre, $descripcion, $telefono, $email, $web]);
+
+        Session::setFlash('success', '¡Tu comercio "' . $nombre . '" está listo en Mercalocal!');
+        header('Location: ' . BASE_URL . '/business/dashboard');
+        exit;
+    }
+
+    // ---------------------------------------------------------------------
+    // GESTIÓN DE SERVICIOS
+    // ---------------------------------------------------------------------
+
+    public function servicesIndex()
+    {
+        $business = $this->requireBusinessProfile();
         $services = \App\Models\Service::getByBusiness($business['id']);
         require_once ROOT_DIR . '/resources/views/business/services/index.php';
     }
 
     public function servicesCreate()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
-        $cats = $db->query('SELECT id,nombre FROM category ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC);
+        // 1. Cargamos el perfil del comercio
+        $business = $this->requireBusinessProfile();
+
+        // 2. Extraemos el ID de la categoría principal
+        $comercio_categoria_id = $business['id_categoria'];
+
+        // 3. Traemos SOLO las subcategorías de tipo 'servicio' para este comercio
+        $cats = \App\Models\Category::getChildrenByParentAndType($comercio_categoria_id, 'servicio');
+
+        // 4. Cargamos la vista del formulario de servicios
         require_once ROOT_DIR . '/resources/views/business/services/form.php';
     }
 
     public function servicesStore()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
 
-        // Validar campos obligatorios
         $required = ['nombre', 'descripcion', 'duracion', 'precio'];
         foreach ($required as $field) {
             if (empty($_POST[$field] ?? null)) {
@@ -221,22 +288,51 @@ class BusinessDashboardController
                 exit;
             }
         }
-        // Preparar datos
+
+        // 🔥 SOLUCIÓN AL ERROR 1366: Forzamos null real si llega un string vacío
+        $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
+
+        // 📷 PROCESAR IMAGEN (Nuevo)
+        $imagen_nombre = null;
+        if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
+            $fileTmpPath = $_FILES['imagen']['tmp_name'];
+            $fileName = $_FILES['imagen']['name'];
+            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            if (in_array($fileExtension, $allowedExtensions)) {
+                $uploadDir = ROOT_DIR . '/public/img/services/';
+                // Si la carpeta no existe, la creamos
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+                // Generamos un nombre único para evitar duplicados
+                $imagen_nombre = uniqid('srv_', true) . '.' . $fileExtension;
+                move_uploaded_file($fileTmpPath, $uploadDir . $imagen_nombre);
+            }
+        }
+
         $data = [
             'business_id' => $business['id'],
-            'category_id' => $_POST['category_id'] ?? null,
+            'category_id' => $category_id, // Guardado seguro
             'nombre' => trim($_POST['nombre']),
             'descripcion' => trim($_POST['descripcion'] ?? ''),
             'duracion' => intval($_POST['duracion'] ?? 0),
             'precio' => floatval($_POST['precio'] ?? 0),
             'activo' => isset($_POST['activo']) ? 1 : 0,
+            'imagen' => $imagen_nombre // Guardamos el nombre en la BD
         ];
+
         try {
-            $id = \App\Models\Service::create($data);
+            \App\Models\Service::create($data);
             Session::setFlash('success', 'Servicio creado exitosamente.');
             header('Location: ' . BASE_URL . '/business/dashboard/services');
             exit;
         } catch (\Throwable $e) {
+            // Si la base de datos falla, limpiamos la imagen física que acabamos de subir
+            if ($imagen_nombre && file_exists(ROOT_DIR . '/public/img/services/' . $imagen_nombre)) {
+                @unlink(ROOT_DIR . '/public/img/services/' . $imagen_nombre);
+            }
             Session::setFlash('error', 'Error al crear el servicio: ' . $e->getMessage());
             header('Location: ' . BASE_URL . '/business/dashboard/services/create');
             exit;
@@ -245,66 +341,75 @@ class BusinessDashboardController
 
     public function servicesEdit($id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
         $service = \App\Models\Service::findById($id);
+
         if (!$service || $service->business_id != $business['id']) {
             Session::setFlash('error', 'Servicio no encontrado.');
             header('Location: ' . BASE_URL . '/business/dashboard/services');
             exit;
         }
-        $cats = $db->query('SELECT id,nombre FROM category ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC);
+
+        // 🌟 CAMBIO AQUÍ: Filtramos dinámicamente usando el id_categoria del comercio
+        $cats = \App\Models\Category::getChildrenByParentAndType($business['id_categoria'], 'servicio');
+
         require_once ROOT_DIR . '/resources/views/business/services/form.php';
     }
 
     public function servicesUpdate($id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
         $service = \App\Models\Service::findById($id);
+
         if (!$service || $service->business_id != $business['id']) {
             Session::setFlash('error', 'Servicio no encontrado.');
             header('Location: ' . BASE_URL . '/business/dashboard/services');
             exit;
         }
 
-// Validar campos obligatorios
-$required = ['nombre', 'descripcion', 'duracion', 'precio'];
-foreach ($required as $field) {
-    if (empty($_POST[$field] ?? null)) {
-        Session::setFlash('error', 'Campo obligatorio faltante: ' . ucfirst($field));
-        header('Location: ' . BASE_URL . '/business/dashboard/services/' . $id . '/edit');
-        exit;
-    }
-}
-$data = [
-    'category_id' => $_POST['category_id'] ?? null,
-    'nombre' => trim($_POST['nombre']),
-    'descripcion' => trim($_POST['descripcion']),
-    'duracion' => intval($_POST['duracion']),
-    'precio' => floatval($_POST['precio']),
-    'activo' => isset($_POST['activo']) ? 1 : 0,
-];
+        $required = ['nombre', 'descripcion', 'duracion', 'precio'];
+        foreach ($required as $field) {
+            if (empty($_POST[$field] ?? null)) {
+                Session::setFlash('error', 'Campo obligatorio faltante: ' . ucfirst($field));
+                header('Location: ' . BASE_URL . '/business/dashboard/services/' . $id . '/edit');
+                exit;
+            }
+        }
+
+        // 🔥 SOLUCIÓN AL ERROR 1366: Mismo tratamiento para la edición
+        $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
+
+        // 📷 PROCESAR NUEVA IMAGEN EN EDICIÓN (Nuevo)
+        $imagen_nombre = $service->imagen; // Mantenemos la actual por defecto
+        if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
+            $fileTmpPath = $_FILES['imagen']['tmp_name'];
+            $fileName = $_FILES['imagen']['name'];
+            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            if (in_array($fileExtension, $allowedExtensions)) {
+                $uploadDir = ROOT_DIR . '/public/img/services/';
+
+                // Si ya tenía una foto vieja en el disco, la borramos para no acumular basura
+                if (!empty($service->imagen) && file_exists($uploadDir . $service->imagen)) {
+                    @unlink($uploadDir . $service->imagen);
+                }
+
+                $imagen_nombre = uniqid('srv_', true) . '.' . $fileExtension;
+                move_uploaded_file($fileTmpPath, $uploadDir . $imagen_nombre);
+            }
+        }
+
+        $data = [
+            'category_id' => $category_id,
+            'nombre' => trim($_POST['nombre']),
+            'descripcion' => trim($_POST['descripcion']),
+            'duracion' => intval($_POST['duracion']),
+            'precio' => floatval($_POST['precio']),
+            'activo' => isset($_POST['activo']) ? 1 : 0,
+            'imagen' => $imagen_nombre // Actualizamos el registro de la imagen
+        ];
+
         try {
             \App\Models\Service::update($id, $data);
             Session::setFlash('success', 'Servicio actualizado.');
@@ -319,25 +424,24 @@ $data = [
 
     public function servicesDelete($id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
         $service = \App\Models\Service::findById($id);
+
         if (!$service || $service->business_id != $business['id']) {
             Session::setFlash('error', 'Servicio no encontrado.');
             header('Location: ' . BASE_URL . '/business/dashboard/services');
             exit;
         }
+
         try {
+            // 📷 LIMPIEZA DE DISCO AL ELIMINAR (Nuevo)
+            if (!empty($service->imagen)) {
+                $filePatch = ROOT_DIR . '/public/img/services/' . $service->imagen;
+                if (file_exists($filePatch)) {
+                    @unlink($filePatch);
+                }
+            }
+
             \App\Models\Service::delete($id);
             Session::setFlash('success', 'Servicio eliminado.');
         } catch (\Throwable $e) {
@@ -347,47 +451,28 @@ $data = [
         exit;
     }
 
-    // ---------- horarios ------------------------------------------------
+    // ---------------------------------------------------------------------
+    // GESTIÓN DE HORARIOS
+    // ---------------------------------------------------------------------
 
     public function schedulesIndex()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
         $schedules = \App\Models\Schedule::getByBusiness($business['id']);
         require_once ROOT_DIR . '/resources/views/business/schedules/index.php';
     }
 
     public function schedulesStore()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
+
         $data = [
             'business_id' => $business['id'],
             'dia_semana' => intval($_POST['dia_semana'] ?? 0),
             'hora_apertura' => $_POST['hora_apertura'] ?? '09:00',
             'hora_cierre' => $_POST['hora_cierre'] ?? '18:00',
         ];
+
         try {
             \App\Models\Schedule::create($data);
             Session::setFlash('success', 'Horario añadido.');
@@ -400,18 +485,8 @@ $data = [
 
     public function schedulesDelete($id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
+
         try {
             \App\Models\Schedule::delete($id);
             Session::setFlash('success', 'Horario eliminado.');
@@ -422,109 +497,42 @@ $data = [
         exit;
     }
 
-    /**
-     * Guarda el perfil del comercio enviado desde el formulario (POST /business/setup).
-     * Valida los campos obligatorios e inserta el registro en la tabla `business`.
-     * Tras guardar, redirige al panel de control con un mensaje de bienvenida.
-     */
-    public function saveSetup()
-    {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
+    // ---------------------------------------------------------------------
+    // GESTIÓN DE PRODUCTOS
+    // ---------------------------------------------------------------------
 
-        // Recoger y sanear los datos del formulario
-        $nombre = trim($_POST['nombre'] ?? '');
-        $descripcion = trim($_POST['descripcion'] ?? '');
-        $telefono = trim($_POST['telefono'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $web = trim($_POST['web'] ?? '') ?: null; // Opcional; si está vacío se guarda como NULL
-
-        // Comprobar campos obligatorios
-        if (empty($nombre) || empty($descripcion) || empty($telefono) || empty($email)) {
-            Session::setFlash('error', 'Por favor rellena todos los campos obligatorios.');
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
-
-        // Insertar el nuevo comercio en la BD con estado activo
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare(
-            'INSERT INTO business (user_id, nombre, descripcion, telefono, email, web, activo)
-             VALUES (?, ?, ?, ?, ?, ?, 1)'
-        );
-        $stmt->execute([Session::get('user_id'), $nombre, $descripcion, $telefono, $email, $web]);
-
-        Session::setFlash('success', '¡Tu comercio "' . $nombre . '" está listo en Mercalocal!');
-        header('Location: ' . BASE_URL . '/business/dashboard');
-        exit;
-    }
-
-    /**
-     * Listado de productos para el comercio (GET /business/dashboard/products)
-     */
     public function productsIndex()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
         $products = \App\Models\Product::getByBusiness($business['id']);
         require_once ROOT_DIR . '/resources/views/business/products/index.php';
     }
 
     public function productsCreate()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
-        // cargar categorías para el selector
-        $cats = $db->query('SELECT id,nombre FROM category ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC);
+        // 1. Cargamos el perfil del comercio (que ahora ya incluye 'id_categoria')
+        $business = $this->requireBusinessProfile();
+
+        // 2. Extraemos el ID de la categoría usando la clave correcta en español
+        $comercio_categoria_id = $business['id_categoria'];
+
+        // 3. Llamamos al modelo para traer SOLO los productos hijos de esta categoría (Alimentación)
+        $cats = \App\Models\Category::getChildrenByParentAndType($comercio_categoria_id, 'producto');
+
+        // 4. Cargamos la vista del formulario
         require_once ROOT_DIR . '/resources/views/business/products/form.php';
     }
 
     public function productsStore()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
-
+        $business = $this->requireBusinessProfile();
         $imagenNombre = null;
 
         // ── Procesar carga de imagen ──
         if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['imagen'];
-            $nombreProducto = preg_replace('/[^a-z0-9_-]/i', '', $_POST['nombre'] ?? 'producto');
 
-            // Validar tipo de archivo
+            // Validar tipo de archivo real (MIME bytes)
             $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mimeType = finfo_file($finfo, $file['tmp_name']);
@@ -543,7 +551,6 @@ $data = [
                 exit;
             }
 
-            // Generar nombre único con timestamp
             $ext = match ($mimeType) {
                 'image/jpeg' => 'jpg',
                 'image/png' => 'png',
@@ -551,22 +558,21 @@ $data = [
                 'image/webp' => 'webp',
                 default => 'jpg'
             };
+
             $imagenNombre = 'producto_' . $business['id'] . '_' . time() . '.' . $ext;
             $uploadDir = ROOT_DIR . '/public/img/products/';
 
-            // Crear directorio si no existe
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
             }
 
             $uploadPath = $uploadDir . $imagenNombre;
 
-            // Mover archivo y comprimir
             if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
                 try {
                     \App\Core\ImageHelper::compress($uploadPath, $uploadPath, 80, 1200, 1200);
                 } catch (\Throwable $e) {
-                    // Si falla la compresión, continuamos con la imagen original
+                    // Si falla la compresión se continúa con la original
                 }
             } else {
                 Session::setFlash('error', 'Error al subir la imagen.');
@@ -575,9 +581,12 @@ $data = [
             }
         }
 
+        // 🔥 SOLUCIÓN AL ERROR 1366: Forzamos null si llega vacío
+        $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
+
         $data = [
             'business_id' => $business['id'],
-            'category_id' => $_POST['category_id'] ?? null,
+            'category_id' => $category_id, // Guardado seguro
             'nombre' => trim($_POST['nombre'] ?? ''),
             'descripcion' => trim($_POST['descripcion'] ?? ''),
             'precio' => floatval($_POST['precio'] ?? 0),
@@ -587,11 +596,15 @@ $data = [
         ];
 
         try {
-            $id = \App\Models\Product::create($data);
+            \App\Models\Product::create($data);
             Session::setFlash('success', 'Producto creado exitosamente.');
             header('Location: ' . BASE_URL . '/business/dashboard/products');
             exit;
         } catch (\Throwable $e) {
+            // Si la BD falla, limpiamos el archivo físico subido
+            if ($imagenNombre && file_exists(ROOT_DIR . '/public/img/products/' . $imagenNombre)) {
+                @unlink(ROOT_DIR . '/public/img/products/' . $imagenNombre);
+            }
             Session::setFlash('error', 'Error al crear el producto: ' . $e->getMessage());
             header('Location: ' . BASE_URL . '/business/dashboard/products/create');
             exit;
@@ -600,56 +613,41 @@ $data = [
 
     public function productsEdit($id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
+
+        // Tu código actual para buscar el producto (puede ser findById o similar)
         $product = \App\Models\Product::findById($id);
+
         if (!$product || $product->business_id != $business['id']) {
-            Session::setFlash('error', 'Producto no encontrado.');
+            \App\Core\Session::setFlash('error', 'Producto no encontrado.');
             header('Location: ' . BASE_URL . '/business/dashboard/products');
             exit;
         }
-        $cats = $db->query('SELECT id,nombre FROM category ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC);
+
+        // 🌟 REEMPLAZA TU CONSULTA ANTIGUA ($db->query...) POR ESTA LÍNEA:
+        $cats = \App\Models\Category::getChildrenByParentAndType($business['id_categoria'], 'producto');
+
+        // Cargamos la vista que me acabas de enseñar
         require_once ROOT_DIR . '/resources/views/business/products/form.php';
     }
 
     public function productsUpdate($id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
         $product = \App\Models\Product::findById($id);
+
         if (!$product || $product->business_id != $business['id']) {
             Session::setFlash('error', 'Producto no encontrado.');
             header('Location: ' . BASE_URL . '/business/dashboard/products');
             exit;
         }
 
-        $imagenNombre = $product->imagen; // Mantener imagen actual por defecto
+        $imagenNombre = $product->imagen;
 
         // ── Procesar nueva imagen si se sube ──
         if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['imagen'];
 
-            // Validar tipo de archivo
             $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mimeType = finfo_file($finfo, $file['tmp_name']);
@@ -661,22 +659,20 @@ $data = [
                 exit;
             }
 
-            // Validar tamaño (máx 5MB)
             if ($file['size'] > 5 * 1024 * 1024) {
                 Session::setFlash('error', 'La imagen no debe exceder 5MB.');
                 header('Location: ' . BASE_URL . '/business/dashboard/products/' . $id . '/edit');
                 exit;
             }
 
-            // Eliminar imagen anterior si existe
+            // Eliminar imagen física anterior para optimizar espacio
             if ($product->imagen) {
                 $oldPath = ROOT_DIR . '/public/img/products/' . $product->imagen;
                 if (file_exists($oldPath)) {
-                    unlink($oldPath);
+                    @unlink($oldPath);
                 }
             }
 
-            // Generar nombre único con timestamp
             $ext = match ($mimeType) {
                 'image/jpeg' => 'jpg',
                 'image/png' => 'png',
@@ -693,12 +689,11 @@ $data = [
 
             $uploadPath = $uploadDir . $imagenNombre;
 
-            // Mover archivo y comprimir
             if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
                 try {
                     \App\Core\ImageHelper::compress($uploadPath, $uploadPath, 80, 1200, 1200);
                 } catch (\Throwable $e) {
-                    // Si falla la compresión, continuamos con la imagen original
+                    // Continuar si falla compresión
                 }
             } else {
                 Session::setFlash('error', 'Error al subir la imagen.');
@@ -707,8 +702,11 @@ $data = [
             }
         }
 
+        // 🔥 SOLUCIÓN AL ERROR 1366: Mismo tratamiento en la edición
+        $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
+
         $data = [
-            'category_id' => $_POST['category_id'] ?? null,
+            'category_id' => $category_id, // Guardado seguro
             'nombre' => trim($_POST['nombre'] ?? ''),
             'descripcion' => trim($_POST['descripcion'] ?? ''),
             'precio' => floatval($_POST['precio'] ?? 0),
@@ -731,30 +729,20 @@ $data = [
 
     public function productsDelete($id)
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
         $product = \App\Models\Product::findById($id);
+
         if (!$product || $product->business_id != $business['id']) {
             Session::setFlash('error', 'Producto no encontrado.');
             header('Location: ' . BASE_URL . '/business/dashboard/products');
             exit;
         }
+
         try {
-            // Eliminar imagen si existe
             if ($product->imagen) {
                 $imagePath = ROOT_DIR . '/public/img/products/' . $product->imagen;
                 if (file_exists($imagePath)) {
-                    unlink($imagePath);
+                    @unlink($imagePath);
                 }
             }
             \App\Models\Product::delete($id);
@@ -766,48 +754,60 @@ $data = [
         exit;
     }
 
-    // ---------- configuración --------------------------------------------
-
     /**
-     * Muestra el formulario de edición del perfil del comercio.
-     * GET /business/dashboard/settings
+     * Actualiza el estado de un pedido desde el panel del comercio.
      */
+    public function updateStatus()
+    {
+        $business = $this->requireBusinessProfile();
+        $bid = $business['id'];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $purchaseId = isset($_POST['purchase_id']) ? (int)$_POST['purchase_id'] : 0;
+            $nuevoEstado = isset($_POST['nuevo_estado']) ? trim($_POST['nuevo_estado']) : '';
+
+            // Lista de estados permitidos (seguridad para tu ENUM)
+            $estadosValidos = ['PENDIENTE', 'PAGADO', 'EN PREPARACION', 'ENVIADO', 'ENTREGADO', 'CANCELADO'];
+
+            if ($purchaseId > 0 && in_array($nuevoEstado, $estadosValidos)) {
+                $db = Database::getInstance()->getConnection();
+
+                // SEGURIDAD: Verificamos que el pedido contiene al menos un producto de este comercio
+                $checkStmt = $db->prepare(
+                    "SELECT COUNT(*) 
+                     FROM order_item oi
+                     JOIN product pr ON pr.id = oi.product_id
+                     WHERE oi.purchase_id = ? AND pr.business_id = ?"
+                );
+                $checkStmt->execute([$purchaseId, $bid]);
+
+                if ((int)$checkStmt->fetchColumn() > 0) {
+                    // Si todo es correcto, actualizamos el estado del pedido
+                    $updateStmt = $db->prepare("UPDATE purchase SET estado = ? WHERE id = ?");
+                    $updateStmt->execute([$nuevoEstado, $purchaseId]);
+                }
+            }
+        }
+
+        // Redirigimos de vuelta a la pantalla de pedidos para ver los cambios reflejados
+        header('Location: ' . $_SERVER['HTTP_REFERER']);
+        exit;
+    }
+
+    // ---------------------------------------------------------------------
+    // CONFIGURACIÓN DE PERFIL (SETTINGS)
+    // ---------------------------------------------------------------------
+
     public function settings()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            Session::setFlash('error', 'Acceso denegado. Solo comercios.');
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT * FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
         require_once ROOT_DIR . '/resources/views/business/settings.php';
     }
 
-    /**
-     * Procesa la actualización de los datos del perfil del comercio.
-     * POST /business/dashboard/settings/update
-     */
     public function updateSettings()
     {
-        if (!Session::get('user_id') || Session::get('user_role') !== 'BUSINESS') {
-            header('Location: ' . BASE_URL . '/login');
-            exit;
-        }
+        $business = $this->requireBusinessProfile();
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
-        $stmt->execute([Session::get('user_id')]);
-        $business = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$business) {
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
 
         $data = [
             'nombre' => trim($_POST['nombre'] ?? ''),

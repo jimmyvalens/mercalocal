@@ -9,6 +9,9 @@ namespace App\Controllers;
 
 use App\Models\Business;
 use App\Models\Category;
+use App\Core\Session;
+use App\Core\Middleware;
+use App\Core\Validator;
 
 class BusinessController
 {
@@ -152,6 +155,114 @@ class BusinessController
         } catch (\Exception $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    // =========================================================================
+    // ZONA PRIVADA — ASISTENTE DE CONFIGURACIÓN (ONBOARDING)
+    // =========================================================================
+
+    /**
+     * Muestra el asistente de configuración inicial para comercios (GET /business/setup).
+     * Custodiado para que solo accedan cuentas BUSINESS sin perfil creado.
+     */
+    public function showSetup()
+    {
+        // El guardián verifica que esté logueado, sea BUSINESS y NO tenga un business_id activo
+        Middleware::requireBusinessPending();
+
+        // Recuperar datos viejos por si hubo un error de validación previo
+        $oldInput = Session::get('setup_old', []);
+        Session::remove('setup_old'); // Limpiar para visitas limpias
+
+        require_once ROOT_DIR . '/resources/views/business/setup.php';
+    }
+
+    /**
+     * Procesa el formulario del asistente de configuración (POST /business/setup).
+     */
+    public function setup()
+    {
+        Middleware::requireBusinessPending();
+
+        // 1. Validar el token de seguridad CSRF
+        $token = $_POST['csrf_token'] ?? '';
+        if (!Session::validateCsrfToken($token)) {
+            Session::setFlash('error', 'La petición ha caducado. Inténtalo de nuevo.');
+            header('Location: ' . BASE_URL . '/business/setup');
+            exit;
+        }
+
+        // 2. Saneamiento inicial de strings básicos
+        $data = [
+            'user_id'     => Session::get('user_id'),
+            'nombre'      => trim($_POST['nombre'] ?? ''),
+            'descripcion' => trim($_POST['descripcion'] ?? ''),
+            'telefono'    => preg_replace('/\s+/', '', $_POST['telefono'] ?? ''), // Limpiar espacios del teléfono
+            'email'       => trim($_POST['email'] ?? ''),
+            'web'         => trim($_POST['web'] ?? ''),
+            'activo'      => 1 // Visible por defecto una vez rellenado el perfil
+        ];
+
+        // 3. Validación de campos obligatorios y formatos
+        $validator = new Validator($_POST);
+        $validator->required('nombre', 'El nombre comercial del negocio es obligatorio.')
+            ->required('descripcion', 'Cuéntanos un poco qué ofrece tu comercio (descripción obligatoria).')
+            ->required('telefono', 'El teléfono de contacto es obligatorio.')
+            ->required('email', 'El correo electrónico comercial es obligatorio.');
+
+        if (!$validator->isValid()) {
+            Session::setFlash('error', implode(' ', $validator->getErrors()));
+            Session::set('setup_old', $_POST); // Almacenar para repoblar el formulario
+            header('Location: ' . BASE_URL . '/business/setup');
+            exit;
+        }
+
+        // 4. Validación específica del teléfono (9 dígitos exactos)
+        if (!preg_match('/^\d{9}$/', $data['telefono'])) {
+            Session::setFlash('error', 'El número de teléfono debe constar exactamente de 9 dígitos numéricos.');
+            Session::set('setup_old', $_POST);
+            header('Location: ' . BASE_URL . '/business/setup');
+            exit;
+        }
+
+        // 5. Validación de formato de email comercial
+        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            Session::setFlash('error', 'La dirección de correo electrónico introducida no es válida.');
+            Session::set('setup_old', $_POST);
+            header('Location: ' . BASE_URL . '/business/setup');
+            exit;
+        }
+
+        // [OPCIONAL] Gestión de multimedia (Logo y Banner de cabecera)
+        // Aquí puedes invocar a tu FileUploader e ImageHelper si ya los tienes listos:
+        // if (!empty($_FILES['logo']['name'])) {
+        //     $data['logo_path'] = \App\Core\FileUploader::upload($_FILES['logo'], 'uploads/logos/');
+        // }
+        // if (!empty($_FILES['hero']['name'])) {
+        //     $data['hero_path'] = \App\Core\FileUploader::upload($_FILES['hero'], 'uploads/heroes/');
+        // }
+
+        // 6. Persistencia de datos y cierre del ciclo de aislamiento
+        try {
+            // Guardamos el comercio en la tabla `business`
+            $businessId = Business::create($data);
+
+            // ¡EL PASO CLAVE! Inyectamos el ID recién creado en la sesión de este usuario.
+            // A partir de este milisegundo exacto, el middleware requireBusinessSetup()
+            // le abrirá las puertas de todos sus paneles privados.
+            Session::set('business_id', $businessId);
+
+            Session::setFlash('success', '¡Enhorabuena! El perfil de tu comercio se ha configurado correctamente. Ya puedes gestionar tus productos y servicios.');
+
+            session_write_close();
+            header('Location: ' . BASE_URL . '/business/dashboard');
+            exit;
+        } catch (\Exception $e) {
+            Session::setFlash('error', 'Ocurrió un error inesperado al guardar los datos del comercio: ' . $e->getMessage());
+            Session::set('setup_old', $_POST);
+            header('Location: ' . BASE_URL . '/business/setup');
+            exit;
         }
     }
 }

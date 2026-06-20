@@ -27,6 +27,7 @@ class Business
     public $created_at;
     public $updated_at;
     public $categorias; // Campo calculado: categorías concatenadas con GROUP_CONCAT
+    public $id_categoria;
 
     /**
      * Devuelve todos los comercios activos.
@@ -204,5 +205,40 @@ class Business
         );
         $stmt->execute([$this->id]);
         return $stmt->fetchAll();
+    }
+
+    /**
+     * Crea un nuevo registro de comercio en la base de datos.
+     *
+     * @param  array $data Datos saneados del comercio
+     * @return int          ID del comercio recién insertado
+     */
+    public static function create($data)
+    {
+        $db = Database::getInstance()->getConnection();
+
+        $sql = "INSERT INTO business (
+                    user_id, nombre, descripcion, telefono, email, web, 
+                    activo, logo_path, hero_path, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            $data['user_id'],
+            $data['nombre'],
+            $data['descripcion'],
+            $data['telefono'],
+            $data['email'],
+            $data['web'] ?? null,
+            $data['activo'] ?? 1, // No requiere aprobación previa de ADMIN
+            $data['logo_path'] ?? null,
+            $data['hero_path'] ?? null
+        ]);
+
+        // Al crear o modificar comercios, es buena práctica limpiar la caché del catálogo
+        // para que el nuevo negocio aparezca inmediatamente a los clientes.
+        \App\Core\Cache::clear();
+
+        return (int)$db->lastInsertId();
     }
 }

@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Controllers/AuthController.php — Controlador de autenticación
+// app/Controllers/AuthController.php — Controlador de autenticación
 // Gestiona el flujo completo de identidad del usuario:
 //   · Mostrar el formulario de login
 //   · Procesar el inicio de sesión
@@ -19,7 +19,7 @@ class AuthController
 {
     /**
      * Muestra el formulario de inicio de sesión.
-     * Si el usuario ya está autenticado, lo redirige al inicio.
+     * Si el usuario ya está autenticado, lo redirige al inicio o a su panel correspondiente.
      */
     public function showLogin()
     {
@@ -29,7 +29,12 @@ class AuthController
             if ($role === 'ADMIN') {
                 header('Location: ' . BASE_URL . '/admin/dashboard');
             } elseif ($role === 'BUSINESS') {
-                header('Location: ' . BASE_URL . '/business/dashboard');
+                // RETOQUE: Si es comercio pero no tiene el setup, al asistente
+                if (Session::get('business_id')) {
+                    header('Location: ' . BASE_URL . '/business/dashboard');
+                } else {
+                    header('Location: ' . BASE_URL . '/business/setup');
+                }
             } else {
                 header('Location: ' . BASE_URL . '/user/dashboard');
             }
@@ -100,23 +105,28 @@ class AuthController
             Session::regenerate();
             // Reset attempts on success
             Session::set($attemptsKey, 0);
+
             // Guardar datos del usuario en la sesión
             Session::set('user_id', $user->id);
             Session::set('user_role', $user->rol);
             Session::set('user_name', $user->nombre);
             Session::set('user_email', $user->email);
 
-            // Importante: No cerramos la sesión forzosamente si es AJAX porque queremos que Session Fixation ande fluido
+            // FLUJO AJAX
             if ($isAjax) {
                 $redirectUrl = BASE_URL . '/';
                 if ($user->rol === 'BUSINESS') {
                     $db = Database::getInstance()->getConnection();
                     $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
                     $stmt->execute([$user->id]);
-                    if (!$stmt->fetch()) {
+                    $businessId = $stmt->fetchColumn(); // Captura directa del ID numérico o false
+
+                    if (!$businessId) {
                         Session::setFlash('info', 'Completa el perfil de tu comercio para comenzar.');
                         $redirectUrl = BASE_URL . '/business/setup';
                     } else {
+                        // RETOQUE: Almacenamos el ID del comercio en la sesión
+                        Session::set('business_id', $businessId);
                         $redirectUrl = BASE_URL . '/business/dashboard';
                     }
                 } elseif ($user->rol === 'ADMIN') {
@@ -127,18 +137,23 @@ class AuthController
                 exit;
             }
 
-            // Si es un comercio, comprobar si ya ha completado su perfil
+            // FLUJO POST TRADICIONAL
             if ($user->rol === 'BUSINESS') {
                 $db = Database::getInstance()->getConnection();
                 $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
                 $stmt->execute([$user->id]);
-                if (!$stmt->fetch()) {
+                $businessId = $stmt->fetchColumn(); // Captura directa del ID numérico o false
+
+                if (!$businessId) {
                     // Todavía no tiene perfil de comercio → redirigir al asistente
                     Session::setFlash('info', 'Completa el perfil de tu comercio para comenzar.');
                     session_write_close();
                     header('Location: ' . BASE_URL . '/business/setup');
                     exit;
                 }
+
+                // RETOQUE: Almacenamos el ID del comercio en la sesión
+                Session::set('business_id', $businessId);
                 session_write_close();
                 header('Location: ' . BASE_URL . '/business/dashboard');
                 exit;
@@ -180,14 +195,6 @@ class AuthController
 
     /**
      * Procesa el formulario de registro (POST /register).
-     * Valida cada campo de forma individualizada y devuelve los valores
-     * introducidos + errores a la vista para no perder lo que el usuario escribió.
-     *
-     * Validaciones aplicadas:
-     *   - nombre / apellidos : mín 3 caracteres y al menos una vocal
-     *   - email              : formato válido
-     *   - teléfono           : exactamente 9 dígitos
-     *   - password           : mín 8 caracteres
      */
     public function register()
     {
@@ -208,16 +215,15 @@ class AuthController
             'rol' => in_array($_POST['rol'] ?? '', ['USER', 'BUSINESS']) ? $_POST['rol'] : 'USER',
         ];
 
-        $errors = []; // Errores individuales por campo
+        $errors = [];
 
-        // ── Validar nombre ──────────────────────────────────────────────
+        // Validaciones de formato y longitud
         if (strlen($data['nombre']) < 3) {
             $errors['nombre'] = 'El nombre debe tener al menos 3 caracteres.';
         } elseif (!preg_match('/[aeiouáéíóúAEIOUÁÉÍÓÚ]/u', $data['nombre'])) {
             $errors['nombre'] = 'El nombre debe contener al menos una vocal.';
         }
 
-        // ── Validar apellidos (opcional pero si se rellena, mismas reglas) ──
         if (!empty($data['apellidos'])) {
             if (strlen($data['apellidos']) < 3) {
                 $errors['apellidos'] = 'Los apellidos deben tener al menos 3 caracteres.';
@@ -226,7 +232,6 @@ class AuthController
             }
         }
 
-        // ── Validar Identificador (Email o Teléfono) ────────────────────
         $identificador = $data['identificador'];
         $data['email'] = null;
         $data['telefono'] = null;
@@ -250,17 +255,13 @@ class AuthController
             }
         }
 
-        // ── Validar contraseña ──────────────────────────────────────────
         if (empty($data['password'])) {
             $errors['password'] = 'La contraseña es obligatoria.';
         } elseif (strlen($data['password']) < 8) {
             $errors['password'] = 'La contraseña debe tener al menos 8 caracteres.';
         }
 
-        // ── Si hay errores, devolver al formulario con los valores y errores ──
         if (!empty($errors)) {
-            // Guardar los valores válidos en sesión para repoblar el formulario
-            // La contraseña nunca se devuelve por seguridad
             Session::set('register_old', [
                 'nombre' => $data['nombre'],
                 'apellidos' => $data['apellidos'],
@@ -272,7 +273,6 @@ class AuthController
             exit;
         }
 
-        // ── Sin errores: crear usuario ──────────────────────────────────
         try {
             $userId = User::create($data);
             Session::regenerate();
@@ -281,14 +281,14 @@ class AuthController
             Session::set('user_name', $data['nombre']);
             Session::set('user_email', $data['email']);
 
-            // Limpiar los datos temporales del formulario de la sesión
             Session::remove('register_old');
             Session::remove('register_errors');
 
-            // Enviar email de bienvenida (no bloquea si MAIL_ENABLED = false o si falla)
-            Mailer::sendWelcome($data['nombre'], $data['email'], $data['rol']);
+            // Solo envía el correo si hay un email registrado
+            if (!empty($data['email'])) {
+                Mailer::sendWelcome($data['nombre'], $data['email'], $data['rol']);
+            }
 
-            // Redirigir según el rol elegido
             if ($data['rol'] === 'BUSINESS') {
                 Session::setFlash('info', 'Cuenta creada. Ahora completa el perfil de tu comercio.');
                 header('Location: ' . BASE_URL . '/business/setup');
