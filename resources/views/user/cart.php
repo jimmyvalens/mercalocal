@@ -1,4 +1,30 @@
-<?php require_once ROOT_DIR . '/resources/views/main_header.php'; ?>
+<?php
+
+use App\Core\Session;
+use App\Models\User;
+
+// 1. CÁLCULO SEGURO DEL TOTAL (Evita el error de variable indefinida)
+$total = 0;
+if (!empty($_SESSION['cart'])) {
+    foreach ($_SESSION['cart'] as $item) {
+        $total += $item['precio'] * $item['cantidad'];
+    }
+}
+
+// 2. DATOS DEL CLIENTE DINÁMICOS
+$direccionEnvio = 'No especificada en el perfil';
+$telefonoContacto = 'No especificado';
+
+if (Session::get('user_id')) {
+    $currentUser = User::findById(Session::get('user_id'));
+    if ($currentUser) {
+        $direccionEnvio = $currentUser->direccion ?? 'No especificada en el perfil';
+        $telefonoContacto = $currentUser->telefono ?? 'No especificado';
+    }
+}
+
+require_once ROOT_DIR . '/resources/views/main_header.php';
+?>
 
 <div style="background-color: #f7fbf8; min-height: 100vh; padding: 40px 0; font-family: 'Inter', sans-serif;">
     <style>

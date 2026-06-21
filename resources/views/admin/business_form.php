@@ -1,4 +1,9 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+?>
+<?php
 // =========================================================================
 // Blindaje para Intelephense y PHP Notices
 // =========================================================================
@@ -121,12 +126,12 @@ $actionUrl = $isEdit ? BASE_URL . '/admin/business/' . $business['id'] . '/updat
 
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Sitio Web (URL)</label>
-                    <input type="url" name="web" value="<?php echo htmlspecialchars($business['web']); ?>" placeholder="https://..." class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] outline-none text-sm transition">
+                    <input type="url" name="web" value="<?php echo htmlspecialchars($business['web'] ?? ''); ?>" placeholder="https://..." class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] outline-none text-sm transition">
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Descripción Comercial</label>
-                    <textarea id="descripcion" name="descripcion" rows="3" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] outline-none text-sm transition"><?php echo htmlspecialchars($business['descripcion']); ?></textarea>
+                    <textarea id="descripcion" name="descripcion" rows="3" class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#059669] outline-none text-sm transition"><?php echo htmlspecialchars($business['descripcion'] ?? ''); ?></textarea>
                 </div>
             </div>
 

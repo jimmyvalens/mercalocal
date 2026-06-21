@@ -296,7 +296,7 @@ class AdminController
     {
         $db = Database::getInstance()->getConnection();
 
-        // Usamos LEFT JOIN para que, aunque el negocio no tenga dirección (casos antiguos), no falle
+        // 1. Buscamos el negocio con sus direcciones
         $stmt = $db->prepare('
         SELECT b.*, a.calle, a.numero, a.codigo_postal, a.ciudad, a.provincia 
         FROM business b
@@ -307,18 +307,29 @@ class AdminController
         $stmt->execute([$id]);
         $business = $stmt->fetch(PDO::FETCH_ASSOC);
 
+        // Control de existencia (mejor ponerlo arriba para evitar consultas innecesarias si no existe)
         if (!$business) {
             Session::setFlash('error', 'Comercio no encontrado.');
             header('Location: ' . BASE_URL . '/admin/businesses');
             exit;
         }
 
-        // Buscamos el propietario
+        // 2. Buscamos TODOS los usuarios para el desplegable de propietarios
+        $stmtUsers = $db->query("SELECT id, nombre, email FROM user ORDER BY nombre ASC");
+        $users = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
+
+        // 3. ¡EL CAMBIO CLAVE! Buscamos TODAS las categorías para el desplegable
+        // (Nota: Si tu tabla de categorías se llama "categoria" o "categories" en plural, cámbialo aquí)
+        $stmtCategory = $db->query("SELECT id, nombre FROM category ORDER BY nombre ASC");
+        $category = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
+
+        // 4. Buscamos el propietario actual de este negocio
         $stmtUser = $db->prepare('SELECT nombre, email FROM user WHERE id = ?');
         $stmtUser->execute([$business['user_id']]);
         $owner = $stmtUser->fetch(PDO::FETCH_ASSOC);
         $business['owner_name'] = $owner ? $owner['nombre'] . ' (' . $owner['email'] . ')' : 'Sin propietario';
 
+        // 5. Cargamos la vista con todas las variables listas
         require_once ROOT_DIR . '/resources/views/admin/business_form.php';
     }
 

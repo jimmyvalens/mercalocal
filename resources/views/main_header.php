@@ -48,17 +48,15 @@
                 <div class="flex items-center gap-4">
 
                     <!-- Cart -->
-                    <?php if ($userRole !== 'BUSINESS'): ?>
-                        <!-- Cart -->
-                        <a href="<?= BASE_URL ?>/cart" class="relative p-2 text-gray-500 hover:text-primary transition-colors hover:bg-green-50 rounded-full">
-                            <i class="fa-solid fa-cart-shopping text-xl"></i>
-                            <?php if ($cartCount > 0): ?>
-                                <span class="absolute top-0 right-0 -mt-1 -mr-1 flex items-center justify-center w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white">
-                                    <?= $cartCount ?>
-                                </span>
-                            <?php endif; ?>
-                        </a>
-                    <?php endif; ?>
+                    <!-- Cart -->
+                    <a href="<?= BASE_URL ?>/cart" class="relative p-2 text-gray-500 hover:text-primary transition-colors hover:bg-green-50 rounded-full">
+                        <i class="fa-solid fa-cart-shopping text-xl"></i>
+                        <?php if ($cartCount > 0): ?>
+                            <span class="absolute top-0 right-0 -mt-1 -mr-1 flex items-center justify-center w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white">
+                                <?= $cartCount ?>
+                            </span>
+                        <?php endif; ?>
+                    </a>
 
                     <!-- Auth Buttons (Desktop) -->
                     <div class="hidden md:flex items-center gap-3">
