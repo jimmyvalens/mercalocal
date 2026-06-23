@@ -1,5 +1,5 @@
 <?php require_once ROOT_DIR . '/resources/views/main_header.php'; ?>
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-8">
@@ -12,7 +12,7 @@
             </h1>
         </div>
         <a href="<?= BASE_URL ?>/business/dashboard/products/create"
-           class="btn-primary inline-flex items-center gap-2 px-5 py-2.5">
+            class="btn-primary inline-flex items-center gap-2 px-5 py-2.5">
             <i class="fa-solid fa-plus"></i> Nuevo Producto
         </a>
     </div>
@@ -27,33 +27,54 @@
             </a>
         </div>
     <?php else: ?>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             <?php foreach ($products as $p): ?>
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition-all group">
-                    <div class="p-6 flex-grow">
-                        <div class="flex justify-between items-start mb-3">
-                            <h3 class="text-lg font-bold text-gray-900 group-hover:text-primary transition-colors">
+
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition-all group w-full max-w-sm mx-auto">
+
+                    <div class="w-full h-24 bg-gray-50 border-b border-gray-100 overflow-hidden flex-shrink-0">
+                        <?php if (!empty($p->imagen)): ?>
+                            <img src="<?= BASE_URL ?>/img/products/<?= $p->imagen ?>"
+                                alt="<?= htmlspecialchars($p->nombre) ?>"
+                                class="w-full h-full object-cover">
+                        <?php else: ?>
+                            <div class="w-full h-full flex items-center justify-center text-orange-300 bg-orange-50/50 gap-2">
+                                <i class="fa-solid fa-box-open text-xl"></i>
+                                <span class="text-xs font-semibold text-orange-400/70">Sin foto</span>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="p-6 flex flex-col flex-1 min-w-0">
+
+                        <div class="flex justify-between items-start mb-3 gap-4 w-full">
+                            <h3 class="text-lg font-bold text-gray-900 line-clamp-1 flex-1 break-all" title="<?= htmlspecialchars($p->nombre) ?>">
                                 <?= htmlspecialchars($p->nombre) ?>
                             </h3>
                             <?php if (isset($p->stock)): ?>
-                                <span class="px-2 py-0.5 rounded-full text-xs font-bold
-                                    <?= $p->stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' ?>">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 <?= $p->stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' ?>">
                                     Stock: <?= intval($p->stock) ?>
                                 </span>
                             <?php endif; ?>
                         </div>
-                        <p class="text-sm text-gray-500 mb-4 line-clamp-2"><?= htmlspecialchars($p->descripcion) ?></p>
-                        <div class="text-2xl font-extrabold text-secondary">
-                            <?= number_format($p->precio, 2) ?> €
+
+                        <p class="text-sm text-gray-500 mb-4 line-clamp-2 break-words" title="<?= htmlspecialchars($p->descripcion) ?>">
+                            <?= htmlspecialchars($p->descripcion) ?>
+                        </p>
+
+                        <div class="text-2xl font-extrabold text-secondary mt-auto">
+                            <?= number_format($p->precio, 2, ',', '.') ?> €
                         </div>
                     </div>
-                    <div class="p-4 bg-gray-50 border-t border-gray-100 flex gap-2">
+
+                    <div class="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 flex-shrink-0">
                         <a href="<?= BASE_URL ?>/business/dashboard/products/<?= $p->id ?>/edit"
-                           class="flex-1 text-center py-2 px-3 bg-white border border-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-100 transition-colors">
+                            class="flex-1 text-center py-2 px-3 bg-white border border-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-100 transition-colors">
                             <i class="fa-solid fa-pencil mr-1"></i> Editar
                         </a>
                         <form action="<?= BASE_URL ?>/business/dashboard/products/<?= $p->id ?>/delete" method="POST"
-                              onsubmit="return confirm('¿Eliminar este producto?');">
+                            onsubmit="return confirm('¿Eliminar este producto?');" class="m-0 flex">
                             <?= \App\Core\Session::csrfField() ?>
                             <button type="submit"
                                 class="py-2 px-3 bg-white border border-red-200 text-red-600 font-bold text-sm rounded-xl hover:bg-red-50 transition-colors">
@@ -61,6 +82,7 @@
                             </button>
                         </form>
                     </div>
+
                 </div>
             <?php endforeach; ?>
         </div>

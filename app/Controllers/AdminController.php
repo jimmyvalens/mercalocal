@@ -119,8 +119,14 @@ class AdminController
         $businesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Obtener categorías disponibles para poblar el selector del buscador
-        $catStmt = $db->query("SELECT * FROM category ORDER BY nombre ASC");
+        $catStmt = $db->query("SELECT * FROM category WHERE parent_id IS NULL OR parent_id = 0 ORDER BY nombre ASC");
         $categories = $catStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Totales globales
+        $totalComercios = $db->query("SELECT COUNT(*) FROM business")->fetchColumn();
+        $totalActivos = $db->query("SELECT COUNT(*) FROM business WHERE activo = 1")->fetchColumn();
+        $totalInactivos = $totalComercios - $totalActivos; // O query("SELECT COUNT(*) FROM business WHERE activo = 0")
+        $totalProductos = $db->query("SELECT COUNT(*) FROM product")->fetchColumn();
 
         // Requerimos la vista. Las variables $businesses, $categories, $page y $totalPages 
         // bajan listas y limpias hacia businesses.php
@@ -200,6 +206,11 @@ class AdminController
         $stmt = $db->query("SELECT id, nombre, email FROM user ORDER BY nombre ASC");
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // 3. ¡EL CAMBIO CLAVE! Buscamos SOLO las categorías PADRE para el desplegable
+        $stmtCategory = $db->query("SELECT id, nombre FROM category WHERE parent_id IS NULL ORDER BY nombre ASC");
+        $category = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
+
+
         require_once ROOT_DIR . '/resources/views/admin/business_form.php';
     }
 
@@ -222,6 +233,11 @@ class AdminController
         $web = trim($_POST['web'] ?? '');
         $user_id = $_POST['user_id'] ?? null;
         $activo = isset($_POST['activo']) ? 1 : 0;
+        $categoria_id = isset($_POST['categoria_id']) ? intval($_POST['categoria_id']) : 0;
+
+        if ($categoria_id <= 0) {
+            throw new \Exception("Debes seleccionar una categoría obligatoriamente.");
+        }
 
         // Datos de dirección
         $calle = trim($_POST['calle'] ?? '');
@@ -264,10 +280,10 @@ class AdminController
 
             // B) Insertar Negocio
             $stmtBus = $db->prepare("
-                INSERT INTO business (nombre, descripcion, telefono, email, web, user_id, activo, logo_path, hero_path) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO business (nombre, descripcion, telefono, email, web, user_id, activo, logo_path, hero_path, id_categoria) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmtBus->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath]);
+            $stmtBus->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath, $categoria_id]);
             $businessId = $db->lastInsertId();
 
             // C) Insertar en tabla pivote para unir ambos
@@ -296,7 +312,7 @@ class AdminController
     {
         $db = Database::getInstance()->getConnection();
 
-        // Usamos LEFT JOIN para que, aunque el negocio no tenga dirección (casos antiguos), no falle
+        // 1. Buscamos el negocio con sus direcciones
         $stmt = $db->prepare('
         SELECT b.*, a.calle, a.numero, a.codigo_postal, a.ciudad, a.provincia 
         FROM business b
@@ -307,18 +323,28 @@ class AdminController
         $stmt->execute([$id]);
         $business = $stmt->fetch(PDO::FETCH_ASSOC);
 
+        // Control de existencia (mejor ponerlo arriba para evitar consultas innecesarias si no existe)
         if (!$business) {
             Session::setFlash('error', 'Comercio no encontrado.');
             header('Location: ' . BASE_URL . '/admin/businesses');
             exit;
         }
 
-        // Buscamos el propietario
+        // 2. Buscamos TODOS los usuarios para el desplegable de propietarios
+        $stmtUsers = $db->query("SELECT id, nombre, email FROM user ORDER BY nombre ASC");
+        $users = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
+
+        // 3. ¡EL CAMBIO CLAVE! Buscamos SOLO las categorías PADRE para el desplegable
+        $stmtCategory = $db->query("SELECT id, nombre FROM category WHERE parent_id IS NULL ORDER BY nombre ASC");
+        $category = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
+
+        // 4. Buscamos el propietario actual de este negocio
         $stmtUser = $db->prepare('SELECT nombre, email FROM user WHERE id = ?');
         $stmtUser->execute([$business['user_id']]);
         $owner = $stmtUser->fetch(PDO::FETCH_ASSOC);
         $business['owner_name'] = $owner ? $owner['nombre'] . ' (' . $owner['email'] . ')' : 'Sin propietario';
 
+        // 5. Cargamos la vista con todas las variables listas
         require_once ROOT_DIR . '/resources/views/admin/business_form.php';
     }
 
@@ -341,6 +367,11 @@ class AdminController
         $web = trim($_POST['web'] ?? '');
         $user_id = $_POST['user_id'] ?? null;
         $activo = isset($_POST['activo']) ? 1 : 0;
+        $categoria_id = isset($_POST['categoria_id']) ? intval($_POST['categoria_id']) : 0;
+
+        if ($categoria_id <= 0) {
+            throw new \Exception("Debes seleccionar una categoría obligatoriamente.");
+        }
 
         $calle = trim($_POST['calle'] ?? '');
         $numero = trim($_POST['numero'] ?? '');
@@ -380,10 +411,10 @@ class AdminController
             // A) Actualizar el Negocio
             $stmtBus = $db->prepare("
                 UPDATE business 
-                SET nombre = ?, descripcion = ?, telefono = ?, email = ?, web = ?, user_id = ?, activo = ?, logo_path = ?, hero_path = ? 
+                SET nombre = ?, descripcion = ?, telefono = ?, email = ?, web = ?, user_id = ?, activo = ?, logo_path = ?, hero_path = ?, id_categoria = ? 
                 WHERE id = ?
             ");
-            $stmtBus->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath, $id]);
+            $stmtBus->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath, $categoria_id, $id]);
 
             // B) Localizar la dirección asociada y actualizarla
             $stmtGetAddr = $db->prepare("SELECT address_id FROM business_address WHERE business_id = ?");

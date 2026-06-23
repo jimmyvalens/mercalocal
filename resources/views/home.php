@@ -25,16 +25,16 @@
                     </p>
                     <div class="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:justify-center lg:justify-start">
                         <a href="/businesses"
-                           class="btn-primary inline-flex items-center justify-center gap-2 px-8 py-3 text-base md:py-3.5 md:text-lg md:px-10">
+                            class="btn-primary inline-flex items-center justify-center gap-2 px-8 py-3 text-base md:py-3.5 md:text-lg md:px-10">
                             <i class="fa-solid fa-store"></i> Explorar Comercios
                         </a>
                         <?php if (!\App\Core\Session::get('user_id')): ?>
                             <a href="/register"
-                               class="inline-flex items-center justify-center gap-2 px-8 py-3 border border-white/30 text-white hover:bg-white/10 font-bold rounded-lg text-base md:py-3.5 md:text-lg md:px-10 transition-colors">
+                                class="inline-flex items-center justify-center gap-2 px-8 py-3 border border-white/30 text-white hover:bg-white/10 font-bold rounded-lg text-base md:py-3.5 md:text-lg md:px-10 transition-colors">
                                 Únete ahora
                             </a>
                         <?php
-endif; ?>
+                        endif; ?>
                     </div>
 
                     <!-- Stats strip -->
@@ -83,7 +83,7 @@ endif; ?>
     <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
 
         <a href="/businesses?categoria=1"
-           class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
+            class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
             <div class="w-12 h-12 bg-green-50 text-green-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
                 <i class="fa-solid fa-apple-whole text-xl"></i>
             </div>
@@ -91,7 +91,7 @@ endif; ?>
         </a>
 
         <a href="/businesses?categoria=2"
-           class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
+            class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
             <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
                 <i class="fa-solid fa-spa text-xl"></i>
             </div>
@@ -99,7 +99,7 @@ endif; ?>
         </a>
 
         <a href="/businesses?categoria=3"
-           class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
+            class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
             <div class="w-12 h-12 bg-pink-50 text-pink-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
                 <i class="fa-solid fa-shirt text-xl"></i>
             </div>
@@ -107,7 +107,7 @@ endif; ?>
         </a>
 
         <a href="/businesses?categoria=4"
-           class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
+            class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
             <div class="w-12 h-12 bg-yellow-50 text-yellow-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
                 <i class="fa-solid fa-hammer text-xl"></i>
             </div>
@@ -115,7 +115,7 @@ endif; ?>
         </a>
 
         <a href="/businesses?categoria=5"
-           class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
+            class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
             <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
                 <i class="fa-solid fa-briefcase text-xl"></i>
             </div>
@@ -126,17 +126,17 @@ endif; ?>
 
 <!-- ═══ CTA Banner ═══ -->
 <?php if (!\App\Core\Session::get('user_id')): ?>
-<div class="border-y border-gray-200 bg-white">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div>
-            <h3 class="text-xl font-bold text-secondary">¿Tienes un comercio local?</h3>
-            <p class="text-gray-500 text-sm mt-1">Regístrate gratis y empieza a vender tus productos online hoy mismo.</p>
+    <div class="border-y border-gray-200 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+                <h3 class="text-xl font-bold text-secondary">¿Tienes un comercio local?</h3>
+                <p class="text-gray-500 text-sm mt-1">Regístrate gratis y empieza a vender tus productos online hoy mismo.</p>
+            </div>
+            <a href="/register?rol=BUSINESS" class="btn-primary shrink-0 px-7 py-2.5">
+                <i class="fa-solid fa-store mr-2"></i> Añadir mi comercio
+            </a>
         </div>
-        <a href="/register?rol=BUSINESS" class="btn-primary shrink-0 px-7 py-2.5">
-            <i class="fa-solid fa-store mr-2"></i> Añadir mi comercio
-        </a>
     </div>
-</div>
 <?php
 endif; ?>
 

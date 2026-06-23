@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
-<body class="font-sans bg-background text-secondary min-h-screen flex flex-col">
+<body class="font-sans bg-background text-secondary min-h-screen flex flex-col min-w-0">
 
     <?php
     // Leer el mensaje flash de un solo uso (devuelve ['type'=>..., 'message'=>...] o null)
@@ -48,17 +48,15 @@
                 <div class="flex items-center gap-4">
 
                     <!-- Cart -->
-                    <?php if ($userRole !== 'BUSINESS'): ?>
-                        <!-- Cart -->
-                        <a href="<?= BASE_URL ?>/cart" class="relative p-2 text-gray-500 hover:text-primary transition-colors hover:bg-green-50 rounded-full">
-                            <i class="fa-solid fa-cart-shopping text-xl"></i>
-                            <?php if ($cartCount > 0): ?>
-                                <span class="absolute top-0 right-0 -mt-1 -mr-1 flex items-center justify-center w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white">
-                                    <?= $cartCount ?>
-                                </span>
-                            <?php endif; ?>
-                        </a>
-                    <?php endif; ?>
+                    <!-- Cart -->
+                    <a href="<?= BASE_URL ?>/cart" class="relative p-2 text-gray-500 hover:text-primary transition-colors hover:bg-green-50 rounded-full">
+                        <i class="fa-solid fa-cart-shopping text-xl"></i>
+                        <?php if ($cartCount > 0): ?>
+                            <span class="absolute top-0 right-0 -mt-1 -mr-1 flex items-center justify-center w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white">
+                                <?= $cartCount ?>
+                            </span>
+                        <?php endif; ?>
+                    </a>
 
                     <!-- Auth Buttons (Desktop) -->
                     <div class="hidden md:flex items-center gap-3">
@@ -74,7 +72,7 @@
                                     <div class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white font-bold text-xs uppercase">
                                         <?= substr($userName ?? 'U', 0, 1) ?>
                                     </div>
-                                    <span class="text-sm font-medium text-gray-700 max-w-[100px] truncate"><?= htmlspecialchars($userName ?? '') ?></span>
+                                    <span class="text-sm font-medium text-gray-700 max-w-25 truncate"><?= htmlspecialchars($userName ?? '') ?></span>
                                 </a>
                                 <a href="<?= BASE_URL ?>/logout" class="text-red-500 hover:text-red-600 p-2" title="Salir">
                                     <i class="fa-solid fa-right-from-bracket"></i>
@@ -104,7 +102,7 @@
                 <div class="border-t border-gray-200 pt-4 pb-2 mt-2">
                     <?php if ($userId): ?>
                         <div class="flex items-center px-4 mb-3">
-                            <div class="flex-shrink-0">
+                            <div class="shrink-0">
                                 <div class="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-white font-bold text-sm uppercase">
                                     <?= substr($userName ?? 'U', 0, 1) ?>
                                 </div>
@@ -183,7 +181,8 @@
                 position: isCartAddition ? 'top-end' : 'center',
                 icon: <?= json_encode($flashType === 'error' ? 'error' : ($flashType === 'success' ? 'success' : ($flashType === 'warning' ? 'warning' : 'info'))) ?>,
                 title: isCartAddition ? '' : <?= json_encode(ucfirst($flashType ?: '')) ?>,
-                text: <?= json_encode($flashMsg) ?>,
+                // Decodificamos las entidades HTML antes de pasarlo a JSON
+                text: <?= json_encode(html_entity_decode($flashMsg, ENT_QUOTES, 'UTF-8')) ?>,
                 timer: isCartAddition ? 3000 : 4000,
                 timerProgressBar: true,
                 showConfirmButton: false,
@@ -195,4 +194,4 @@
     <?php endif; ?>
 
     <!-- Main container for views -->
-    <main class="flex-grow flex flex-col">
+    <main class="grow flex flex-col">

@@ -33,8 +33,39 @@
 
         <!-- Stats cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
-                <div class="w-14 h-14 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center text-2xl">
+                <div class="w-12 h-12 rounded-xl bg-gray-50 text-gray-600 flex items-center justify-center text-2xl">
+                    <i class="fa-solid fa-store"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 mb-1">Todos los comercios</p>
+                    <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['businesses'] ?? 0) ?></p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="w-12 h-12 rounded-xl bg-green-50 text-green-500 flex items-center justify-center text-2xl">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 mb-1">Comercios activos</p>
+                    <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['businesses_active'] ?? 0) ?></p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center text-2xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 mb-1">Comercios inactivos</p>
+                    <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['businesses_inactive'] ?? 0) ?></p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center text-2xl">
                     <i class="fa-solid fa-users"></i>
                 </div>
                 <div>
@@ -42,69 +73,54 @@
                     <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['users'] ?? 0) ?></p>
                 </div>
             </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
-                <div class="w-14 h-14 rounded-xl bg-orange-50 text-primary flex items-center justify-center text-2xl">
-                    <i class="fa-solid fa-store"></i>
-                </div>
-                <div>
-                    <p class="text-sm font-medium text-gray-500 mb-1">Comercios</p>
-                    <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['businesses'] ?? 0) ?></p>
-                </div>
-            </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
-                <div class="w-14 h-14 rounded-xl bg-green-50 text-green-500 flex items-center justify-center text-2xl">
-                    <i class="fa-solid fa-money-bill-wave"></i>
-                </div>
-                <div>
-                    <p class="text-sm font-medium text-gray-500 mb-1">Ventas Totales</p>
-                    <p class="text-2xl font-bold text-gray-900">€<?= number_format($stats['sales'] ?? 0, 2) ?></p>
-                </div>
-            </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
-                <div class="w-14 h-14 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center text-2xl">
-                    <i class="fa-solid fa-chart-line"></i>
-                </div>
-                <div>
-                    <p class="text-sm font-medium text-gray-500 mb-1">Ingresos</p>
-                    <p class="text-2xl font-bold text-gray-900">€<?= number_format($stats['sales'] ?? 0, 2) ?></p>
-                </div>
-            </div>
+
         </div>
 
         <!-- Segunda fila de stats -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <div class="flex items-center justify-between mb-3">
-                    <p class="text-sm font-medium text-gray-500">Comercios Activos</p>
-                    <i class="fa-solid fa-check text-green-500"></i>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="w-12 h-12 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center text-2xl">
+                    <i class="fa-solid fa-box"></i>
                 </div>
-                <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['businesses_active'] ?? 0) ?></p>
-                <p class="text-xs text-gray-400 mt-2">De <?= number_format($stats['businesses'] ?? 0) ?> totales</p>
-            </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <div class="flex items-center justify-between mb-3">
-                    <p class="text-sm font-medium text-gray-500">Productos</p>
-                    <i class="fa-solid fa-box text-orange-500"></i>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 mb-1">Productos</p>
+                    <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['products'] ?? 0) ?></p>
                 </div>
-                <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['products'] ?? 0) ?></p>
-                <p class="text-xs text-gray-400 mt-2">En catálogo</p>
             </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <div class="flex items-center justify-between mb-3">
-                    <p class="text-sm font-medium text-gray-500">Servicios</p>
-                    <i class="fa-solid fa-wrench text-blue-500"></i>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-2xl">
+                    <i class="fa-solid fa-cart-shopping"></i>
                 </div>
-                <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['services'] ?? 0) ?></p>
-                <p class="text-xs text-gray-400 mt-2">Disponibles</p>
-            </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <div class="flex items-center justify-between mb-3">
-                    <p class="text-sm font-medium text-gray-500">Pedidos</p>
-                    <i class="fa-solid fa-shopping-cart text-emerald-500"></i>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 mb-1">Pedidos</p>
+                    <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['orders'] ?? 0) ?></p>
                 </div>
-                <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['orders'] ?? 0) ?></p>
-                <p class="text-xs text-gray-400 mt-2">Completados</p>
             </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="w-12 h-12 rounded-xl bg-green-50 text-green-500 flex items-center justify-center text-2xl">
+                    <i class="fa-solid fa-money-bill-wave"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 mb-1">Ventas</p>
+                    <p class="text-2xl font-bold text-gray-900">€<?= number_format($stats['sales'] ?? 0, 2) ?></p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center text-2xl">
+                    <i class="fa-solid fa-chart-line"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-500 mb-1">Ingresos (15%)</p>
+                    <p class="text-2xl font-bold text-gray-900">
+                        €<?= number_format(($stats['sales'] ?? 0) * 0.15, 2) ?>
+                    </p>
+                </div>
+            </div>
+
         </div>
 
         <!-- Acciones rápidas -->
@@ -153,4 +169,4 @@
         </div>
     </div>
 </div>
-<?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>
+<?php require_once ROOT_DIR . '/resources/views/layout/footer_dashboard.php'; ?>

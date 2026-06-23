@@ -46,4 +46,35 @@ class Middleware
             exit;
         }
     }
+
+    /**
+     * NUEVO: Verifica que el comercio HAYA COMPLETADO el setup inicial.
+     * Se usará en: dashboard, productos, servicios, horarios, pedidos...
+     */
+    public static function requireBusinessSetup()
+    {
+        // Primero nos aseguramos de que al menos sea un usuario tipo BUSINESS
+        self::requireRole('BUSINESS');
+
+        // Si no tiene un ID de comercio asignado en la sesión, al formulario de cabeza
+        if (!Session::get('business_id')) {
+            header('Location: ' . BASE_URL . '/business/setup');
+            exit;
+        }
+    }
+
+    /**
+     * NUEVO: Verifica que el comercio TENGA PENDIENTE el setup inicial.
+     * Se usará ÚNICAMENTE en la ruta y vista de 'views/business/setup.php'.
+     */
+    public static function requireBusinessPending()
+    {
+        self::requireRole('BUSINESS');
+
+        // Si ya tiene un ID de comercio, no tiene sentido que vuelva a rellenar el setup
+        if (Session::get('business_id')) {
+            header('Location: ' . BASE_URL . '/business/dashboard');
+            exit;
+        }
+    }
 }

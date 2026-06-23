@@ -1,4 +1,7 @@
-<?php require_once ROOT_DIR . '/resources/views/main_header.php'; ?>
+<?php
+require_once ROOT_DIR . '/resources/views/main_header.php';
+$total = $total ?? 0;
+?>
 
 <div style="background-color: #f7fbf8; min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 40px 20px; font-family: 'Inter', sans-serif;">
     <div style="max-width: 500px; width: 100%; background: white; border-radius: 32px; border: 1px solid #d4e8da; padding: 50px; text-align: center; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.05);">
@@ -9,7 +12,7 @@
 
         <h1 style="font-size: 28px; font-weight: 900; color: #1a2e1f; margin-bottom: 10px; letter-spacing: -1px;">Simulación de Pago</h1>
         <p style="color: #5a7a64; font-size: 15px; margin-bottom: 35px; line-height: 1.6;">
-            Esta es una pasarela de pago simulada para tu <strong>Proyecto de Fin de Grado</strong>. No se realizarán cargos reales en ninguna tarjeta de crédito.
+            Esta es una pasarela de pago simulada <strong>Proyecto de Fin de Grado</strong>. No se realizarán cargos reales en ninguna tarjeta de crédito.
         </p>
 
         <div style="background: #f7fbf8; border-radius: 16px; padding: 25px; margin-bottom: 35px; border: 1px dashed #d4e8da;">
