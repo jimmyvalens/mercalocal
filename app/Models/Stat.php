@@ -19,6 +19,7 @@ class Stat
         $stats['users'] = $db->query("SELECT count(*) as total FROM user")->fetch()['total'];
         $stats['businesses'] = $db->query("SELECT count(*) as total FROM business")->fetch()['total'];
         $stats['businesses_active'] = $db->query("SELECT count(*) as total FROM business WHERE activo = 1")->fetch()['total'];
+        $stats['businesses_inactive'] = $db->query("SELECT count(*) as total FROM business WHERE activo = 0")->fetch()['total'];
         $stats['products'] = $db->query("SELECT count(*) as total FROM product WHERE activo = 1")->fetch()['total'];
         $stats['services'] = $db->query("SELECT count(*) as total FROM service WHERE activo = 1")->fetch()['total'];
         $stats['sales'] = $db->query("SELECT sum(total) as total FROM purchase WHERE estado='PAGADO'")->fetch()['total'] ?? 0;

@@ -4,8 +4,8 @@
     <div style="max-width:80rem; margin:0 auto;">
         <?php
         $logoFile = file_exists(ROOT_DIR . '/public/img/mercalocal-logo.png')
-                  ? BASE_URL . '/img/mercalocal-logo.png'
-                  : BASE_URL . '/img/mercalocal-logo.svg';
+            ? BASE_URL . '/img/mercalocal-logo.png'
+            : BASE_URL . '/img/mercalocal-logo.svg';
         ?>
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:2rem; margin-bottom:2.5rem;">
             <div>
@@ -24,16 +24,16 @@
                 <p style="font-size:.7rem; font-weight:700; color:#9dc9a8; text-transform:uppercase; letter-spacing:.08em; margin:0 0 .875rem;">Clientes</p>
                 <div style="display:flex; flex-direction:column; gap:.5rem;">
                     <a href="<?= BASE_URL ?>/businesses" style="color:#c8e6cc; font-size:.875rem;" onmouseover="this.style.color='var(--ml-beige)'" onmouseout="this.style.color='#c8e6cc'">Explorar Comercios</a>
-                    <a href="<?= BASE_URL ?>/register"   style="color:#c8e6cc; font-size:.875rem;" onmouseover="this.style.color='var(--ml-beige)'" onmouseout="this.style.color='#c8e6cc'">Crear Cuenta</a>
-                    <a href="<?= BASE_URL ?>/orders"     style="color:#c8e6cc; font-size:.875rem;" onmouseover="this.style.color='var(--ml-beige)'" onmouseout="this.style.color='#c8e6cc'">Mis Pedidos</a>
+                    <a href="<?= BASE_URL ?>/register" style="color:#c8e6cc; font-size:.875rem;" onmouseover="this.style.color='var(--ml-beige)'" onmouseout="this.style.color='#c8e6cc'">Crear Cuenta</a>
+                    <a href="<?= BASE_URL ?>/orders" style="color:#c8e6cc; font-size:.875rem;" onmouseover="this.style.color='var(--ml-beige)'" onmouseout="this.style.color='#c8e6cc'">Mis Pedidos</a>
                 </div>
             </div>
 
             <div>
                 <p style="font-size:.7rem; font-weight:700; color:#9dc9a8; text-transform:uppercase; letter-spacing:.08em; margin:0 0 .875rem;">Comercios</p>
                 <div style="display:flex; flex-direction:column; gap:.5rem;">
-                    <a href="<?= BASE_URL ?>/register"            style="color:#c8e6cc; font-size:.875rem;" onmouseover="this.style.color='var(--ml-beige)'" onmouseout="this.style.color='#c8e6cc'">&Uacute;nete a Mercalocal</a>
-                    <a href="<?= BASE_URL ?>/business/dashboard"  style="color:#c8e6cc; font-size:.875rem;" onmouseover="this.style.color='var(--ml-beige)'" onmouseout="this.style.color='#c8e6cc'">Mi Panel</a>
+                    <a href="<?= BASE_URL ?>/register" style="color:#c8e6cc; font-size:.875rem;" onmouseover="this.style.color='var(--ml-beige)'" onmouseout="this.style.color='#c8e6cc'">&Uacute;nete a Mercalocal</a>
+                    <a href="<?= BASE_URL ?>/business/dashboard" style="color:#c8e6cc; font-size:.875rem;" onmouseover="this.style.color='var(--ml-beige)'" onmouseout="this.style.color='#c8e6cc'">Mi Panel</a>
                 </div>
             </div>
 
@@ -54,5 +54,11 @@
     </div>
 </footer>
 
+<script>
+    window.BASE_URL = "<?= BASE_URL ?>";
+</script>
+<script src="<?= BASE_URL ?>/js/main.js"></script>
+
 </body>
+
 </html>

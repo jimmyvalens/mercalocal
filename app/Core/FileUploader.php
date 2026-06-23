@@ -47,10 +47,10 @@ class FileUploader
         // Generar nombre seguro
         $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
         $filename = uniqid($prefix) . '.' . strtolower($ext);
-        
+
         // La ruta absoluta donde se guardará el archivo
         $targetPath = rtrim($this->uploadDir, '/') . '/' . $filename;
-        
+
         // Extraer la ruta relativa desde 'public/'
         $publicPos = strpos($targetPath, 'public');
         if ($publicPos !== false) {

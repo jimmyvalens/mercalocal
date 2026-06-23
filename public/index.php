@@ -99,8 +99,8 @@ $router->get('/businesses', [BusinessController::class, 'index']);
 // como si fueran IDs de negocio y llamaría a BusinessController::detail().
 
 // Asistente de configuración inicial para nuevos comercios
-$router->get('/business/setup', [BusinessDashboardController::class, 'setup']);
-$router->post('/business/setup', [BusinessDashboardController::class, 'saveSetup']);
+$router->get('/business/setup', [BusinessController::class, 'showSetup']);
+$router->post('/business/setup', [BusinessController::class, 'setup']);
 
 // Paneles privados (comercio y administrador)
 $router->get('/business/dashboard', [BusinessDashboardController::class, 'index']);

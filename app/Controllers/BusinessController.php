@@ -50,7 +50,7 @@ class BusinessController
 
     /**
      * Muestra la ficha detallada de un comercio (GET /business/{id}).
-     * Carga sus productos, servicios y horarios de apertura.
+     * Carga sus productos y horarios de apertura (Enfoque exclusivo: Productos físicos).
      *
      * @param int $id ID del comercio a mostrar
      */
@@ -64,12 +64,11 @@ class BusinessController
             return;
         }
 
-        // Cargar los datos relacionados del comercio
-        $products = $business->getProducts(); // Productos disponibles para compra
-        $services = $business->getServices(); // Servicios disponibles para reserva
+        // Cargar únicamente los datos relacionados necesarios
+        $products = $business->getProducts();   // Productos físicos disponibles para compra
         $schedules = $business->getSchedules(); // Horarios de atención al público
 
-        require_once ROOT_DIR . '/resources/views/business/detail.php';
+        require ROOT_DIR . '/resources/views/business/detail.php';
     }
 
     /**
@@ -175,7 +174,30 @@ class BusinessController
         $oldInput = Session::get('setup_old', []);
         Session::remove('setup_old'); // Limpiar para visitas limpias
 
-        require_once ROOT_DIR . '/resources/views/business/setup.php';
+        // 1. Consultamos las categorías padre de la base de datos
+        $db = \App\Core\Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT id, nombre FROM category WHERE parent_id IS NULL ORDER BY nombre ASC");
+        $stmt->execute();
+        $categorias_padre = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // 2. Inicializamos los campos para evitar errores de "Key indefinida" en la vista
+        $business = array_merge([
+            'nombre'        => '',
+            'telefono'      => '',
+            'email'         => '',
+            'web'           => '',
+            'descripcion'   => '',
+            'categoria_id'  => '',
+            'calle'         => '',
+            'numero'        => '',
+            'codigo_postal' => '',
+            'ciudad'        => '',
+            'provincia'     => ''
+        ], $oldInput);
+
+        // die("¡Sí, se está ejecutando showSetup y la variable tiene: " . count($categorias_padre) . " elementos!");
+
+        require ROOT_DIR . '/resources/views/business/setup.php';
     }
 
     /**
@@ -197,6 +219,7 @@ class BusinessController
         $data = [
             'user_id'     => Session::get('user_id'),
             'nombre'      => trim($_POST['nombre'] ?? ''),
+            'categoria_id' => $_POST['categoria_id'] ?? null,
             'descripcion' => trim($_POST['descripcion'] ?? ''),
             'telefono'    => preg_replace('/\s+/', '', $_POST['telefono'] ?? ''), // Limpiar espacios del teléfono
             'email'       => trim($_POST['email'] ?? ''),
@@ -207,6 +230,7 @@ class BusinessController
         // 3. Validación de campos obligatorios y formatos
         $validator = new Validator($_POST);
         $validator->required('nombre', 'El nombre comercial del negocio es obligatorio.')
+            ->required('categoria_id', 'La categoría del comercio es obligatoria.')
             ->required('descripcion', 'Cuéntanos un poco qué ofrece tu comercio (descripción obligatoria).')
             ->required('telefono', 'El teléfono de contacto es obligatorio.')
             ->required('email', 'El correo electrónico comercial es obligatorio.');
@@ -234,14 +258,17 @@ class BusinessController
             exit;
         }
 
-        // [OPCIONAL] Gestión de multimedia (Logo y Banner de cabecera)
-        // Aquí puedes invocar a tu FileUploader e ImageHelper si ya los tienes listos:
-        // if (!empty($_FILES['logo']['name'])) {
-        //     $data['logo_path'] = \App\Core\FileUploader::upload($_FILES['logo'], 'uploads/logos/');
-        // }
-        // if (!empty($_FILES['hero']['name'])) {
-        //     $data['hero_path'] = \App\Core\FileUploader::upload($_FILES['hero'], 'uploads/heroes/');
-        // }
+        $uploader = new \App\Core\FileUploader();
+
+        $data['logo'] = null;
+        if (isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
+            $data['logo'] = $uploader->upload($_FILES['logo'], 'uploads/logos/');
+        }
+
+        $data['hero'] = null;
+        if (isset($_FILES['hero']) && $_FILES['hero']['error'] === UPLOAD_ERR_OK) {
+            $data['hero'] = $uploader->upload($_FILES['hero'], 'uploads/heroes/');
+        }
 
         // 6. Persistencia de datos y cierre del ciclo de aislamiento
         try {

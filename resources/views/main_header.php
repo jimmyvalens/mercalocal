@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
-<body class="font-sans bg-background text-secondary min-h-screen flex flex-col">
+<body class="font-sans bg-background text-secondary min-h-screen flex flex-col min-w-0">
 
     <?php
     // Leer el mensaje flash de un solo uso (devuelve ['type'=>..., 'message'=>...] o null)

@@ -1,28 +1,24 @@
 <?php
-// =========================================================================
-// 1. BLINDAJE ANTINOTICES Y CONTROL DE TEXTO PARA EVITAR TYPEERROR
-// =========================================================================
-// Recuperamos los datos antiguos de la sesión (si la validación falló)
-$oldData = \App\Core\Session::getFlash('setup_old') ?? [];
 
-// Nos aseguramos de que cada campo sea estrictamente un string limpio
-$business = [
-    'nombre'        => is_string($oldData['nombre'] ?? null) ? $oldData['nombre'] : '',
-    'descripcion'   => is_string($oldData['descripcion'] ?? null) ? $oldData['descripcion'] : '',
-    'telefono'      => is_string($oldData['telefono'] ?? null) ? $oldData['telefono'] : '',
-    'email'         => is_string($oldData['email'] ?? null) ? $oldData['email'] : '',
-    'web'           => is_string($oldData['web'] ?? null) ? $oldData['web'] : '',
-    'calle'         => is_string($oldData['calle'] ?? null) ? $oldData['calle'] : '',
-    'numero'        => is_string($oldData['numero'] ?? null) ? $oldData['numero'] : '',
-    'codigo_postal' => is_string($oldData['codigo_postal'] ?? null) ? $oldData['codigo_postal'] : '',
-    'ciudad'        => is_string($oldData['ciudad'] ?? null) ? $oldData['ciudad'] : '',
-    'provincia'     => is_string($oldData['provincia'] ?? null) ? $oldData['provincia'] : '',
-    'logo_path'     => '',
-    'hero_path'     => ''
+// Búnker anti-errores: si el router duplica la carga, inicializamos en vacío y nos olvidamos
+$categorias_padre = $categorias_padre ?? [];
+$business = $business ?? [
+    'nombre'        => '',
+    'telefono'      => '',
+    'email'         => '',
+    'web'           => '',
+    'descripcion'   => '',
+    'categoria_id'  => '',
+    'calle'         => '',
+    'numero'        => '',
+    'codigo_postal' => '',
+    'ciudad'        => '',
+    'provincia'     => ''
 ];
 
 // Carga de la cabecera original de Mercalocal
 require_once ROOT_DIR . '/resources/views/main_header.php';
+
 ?>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -46,7 +42,7 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
             </div>
         <?php endif; ?>
 
-        <form action="<?php echo BASE_URL; ?>/business/setup" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <form id="setup_comercio" action="<?php echo BASE_URL; ?>/business/setup" method="POST" enctype="multipart/form-data" class="space-y-6" data-persist>
 
             <?php echo \App\Core\Session::csrfField(); ?>
 
@@ -82,6 +78,23 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                     <input type="text" id="nombre" name="nombre" required value="<?php echo htmlspecialchars($business['nombre']); ?>" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00b050] focus:border-transparent outline-none text-sm transition bg-gray-50" placeholder="Ej. Frutería Manolo o Zapatería Flores">
                 </div>
 
+                <div>
+                    <label for="categoria_id" class="block text-xs font-bold text-gray-700 uppercase mb-1">Categoría del Comercio <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <select id="categoria_id" name="categoria_id" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00b050] focus:border-transparent outline-none text-sm transition bg-gray-50 appearance-none cursor-pointer text-gray-700">
+                            <option value="" disabled selected>Selecciona una categoría...</option>
+                            <?php foreach ($categorias_padre as $categoria): ?>
+                                <option value="<?= $categoria['id'] ?>" <?= (isset($business['categoria_id']) && $business['categoria_id'] == $categoria['id']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($categoria['nombre']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Teléfono corporativo <span class="text-red-500">*</span></label>
@@ -96,7 +109,7 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
 
                 <div>
                     <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Sitio Web o Redes Sociales <span class="text-gray-400 font-normal">(Opcional)</span></label>
-                    <input type="url" name="web" value="<?php echo htmlspecialchars($business['web']); ?>" placeholder="https://..." class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00b050] focus:border-transparent outline-none text-sm transition bg-gray-50">
+                    <input type="url" name="web" id="web" <?php echo htmlspecialchars($business['web']); ?>" placeholder="https://..." class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00b050] focus:border-transparent outline-none text-sm transition bg-gray-50">
                 </div>
 
                 <div>
@@ -149,83 +162,42 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
 </div>
 
 <div id="modal-vista-previa" class="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 hidden p-4 transition-all duration-300">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-gray-100 transform scale-95 transition-transform duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 transform scale-95 transition-transform duration-300">
         <div class="px-5 py-3 bg-gray-50 border-b flex justify-between items-center">
-            <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider">Tarjeta Pública en Catálogo</h3>
+            <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider">Tarjeta Pública</h3>
             <button type="button" id="btn-cerrar-previa" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
         </div>
 
         <div class="p-6 bg-gray-50 flex justify-center">
             <div class="bg-white rounded-2xl shadow-md overflow-hidden w-full border border-gray-200 relative">
-                <div class="h-28 bg-gray-300 relative">
+
+                <div class="h-36 bg-gray-300 relative">
                     <img id="modal-prev-hero" src="" class="w-full h-full object-cover">
                 </div>
-                <div class="absolute top-16 left-4 w-14 h-14 bg-white rounded-full p-0.5 shadow border overflow-hidden">
+
+                <div class="absolute top-24 left-4 w-16 h-16 bg-white rounded-full p-0.5 shadow border overflow-hidden">
                     <img id="modal-prev-logo" src="" class="w-full h-full object-cover rounded-full">
                 </div>
-                <div class="p-4 pt-6">
-                    <h4 id="modal-prev-nombre" class="text-base font-bold text-gray-900 truncate">Nombre</h4>
-                    <p id="modal-prev-desc" class="text-xs text-gray-500 line-clamp-2 mt-1">Texto...</p>
-                    <div class="mt-3 pt-2 border-t flex justify-between items-center text-xs text-[#00b050] font-semibold">
+
+                <div class="p-5 pt-10">
+                    <h4 id="modal-prev-nombre" class="text-lg font-bold text-gray-900 truncate">Nombre</h4>
+                    <p id="modal-prev-desc" class="text-sm text-gray-500 line-clamp-2 mt-1">Texto...</p>
+
+                    <div class="mt-4 pt-2 border-t flex justify-between items-center text-sm text-[#059669] font-semibold">
                         <span>Visitar tienda &rarr;</span>
-                        <span class="bg-[#e6f7ed] text-[#00b050] px-2 py-0.5 rounded-full text-[10px]">Pendiente</span>
+                        <span class="bg-[#ecfdf5] text-[#047857] px-2 py-0.5 rounded-full text-[11px]">Nuevo</span>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Elementos de la interfaz
-        const inputHero = document.getElementById('input-hero');
-        const inputLogo = document.getElementById('input-logo');
-        const prevHero = document.getElementById('preview-hero');
-        const prevLogo = document.getElementById('preview-logo');
-        const placeholderHero = document.getElementById('placeholder-hero');
-        const placeholderLogo = document.getElementById('placeholder-logo');
-
-        // Procesador de ficheros locales en tiempo real
-        function gestionarArchivo(input, imgElement, placeholderElement, esHero) {
-            if (input && imgElement) {
-                input.addEventListener('change', function() {
-                    if (this.files && this.files[0]) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            imgElement.src = e.target.result;
-                            imgElement.classList.remove('hidden');
-                            if (esHero) {
-                                placeholderElement.className = "text-center p-4 absolute inset-0 bg-black bg-opacity-40 text-white flex flex-col items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-xl z-10";
-                            } else {
-                                placeholderElement.className = "text-center p-1 absolute inset-0 bg-black bg-opacity-50 text-white flex flex-col items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-full z-10";
-                            }
-                        }
-                        reader.readAsDataURL(this.files[0]);
-                    }
-                });
-            }
-        }
-        gestionarArchivo(inputHero, prevHero, placeholderHero, true);
-        gestionarArchivo(inputLogo, prevLogo, placeholderLogo, false);
-
-        // Control del Modal de Previsualización Dinámica
-        const btnPrevisualizar = document.getElementById('btn-previsualizar');
-        const modal = document.getElementById('modal-vista-previa');
-        const btnCerrar = document.getElementById('btn-cerrar-previa');
-
-        if (btnPrevisualizar && modal) {
-            btnPrevisualizar.addEventListener('click', function() {
-                document.getElementById('modal-prev-nombre').textContent = document.getElementById('nombre').value || 'Mi Comercio Nuevo';
-                document.getElementById('modal-prev-desc').textContent = document.getElementById('descripcion').value || 'Sin descripción añadida todavía.';
-                document.getElementById('modal-prev-hero').src = prevHero.src || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500';
-                document.getElementById('modal-prev-logo').src = prevLogo.src || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=150';
-                modal.classList.remove('hidden');
-            });
-            btnCerrar.addEventListener('click', () => modal.classList.add('hidden'));
-        }
-    });
+    window.BASE_URL = "<?= BASE_URL ?>";
 </script>
+<script src="<?= BASE_URL ?>/js/main.js"></script>
 
 <?php
 // Carga del footer original de Mercalocal
