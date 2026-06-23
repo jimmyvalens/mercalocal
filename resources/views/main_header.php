@@ -72,7 +72,7 @@
                                     <div class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white font-bold text-xs uppercase">
                                         <?= substr($userName ?? 'U', 0, 1) ?>
                                     </div>
-                                    <span class="text-sm font-medium text-gray-700 max-w-[100px] truncate"><?= htmlspecialchars($userName ?? '') ?></span>
+                                    <span class="text-sm font-medium text-gray-700 max-w-25 truncate"><?= htmlspecialchars($userName ?? '') ?></span>
                                 </a>
                                 <a href="<?= BASE_URL ?>/logout" class="text-red-500 hover:text-red-600 p-2" title="Salir">
                                     <i class="fa-solid fa-right-from-bracket"></i>
@@ -102,7 +102,7 @@
                 <div class="border-t border-gray-200 pt-4 pb-2 mt-2">
                     <?php if ($userId): ?>
                         <div class="flex items-center px-4 mb-3">
-                            <div class="flex-shrink-0">
+                            <div class="shrink-0">
                                 <div class="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-white font-bold text-sm uppercase">
                                     <?= substr($userName ?? 'U', 0, 1) ?>
                                 </div>
@@ -194,4 +194,4 @@
     <?php endif; ?>
 
     <!-- Main container for views -->
-    <main class="flex-grow flex flex-col">
+    <main class="grow flex flex-col">
