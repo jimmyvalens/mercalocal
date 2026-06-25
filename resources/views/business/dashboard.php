@@ -38,7 +38,6 @@ function estadoBadge(?string $estado): string
             <nav class="space-y-2">
                 <a href="<?= BASE_URL ?>/business/dashboard" class="flex items-center gap-3 px-4 py-3 bg-orange-50 text-primary font-bold rounded-xl"><i class="fa-solid fa-chart-pie w-5"></i> Resumen</a>
                 <a href="<?= BASE_URL ?>/business/dashboard/products" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-primary font-medium rounded-xl"><i class="fa-solid fa-box w-5"></i> Productos</a>
-                <a href="<?= BASE_URL ?>/business/dashboard/services" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-primary font-medium rounded-xl"><i class="fa-solid fa-handshake-angle w-5"></i> Servicios</a>
                 <a href="<?= BASE_URL ?>/business/dashboard/schedules" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-primary font-medium rounded-xl"><i class="fa-solid fa-clock w-5"></i> Horarios</a>
                 <a href="<?= BASE_URL ?>/business/dashboard/orders" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-primary font-medium rounded-xl"><i class="fa-solid fa-receipt w-5"></i> Pedidos <span class="ml-auto bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full"><?= $stats['pending_orders'] ?></span></a>
                 <a href="<?= BASE_URL ?>/business/dashboard/settings" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-primary font-medium rounded-xl"><i class="fa-solid fa-gear w-5"></i> Configuración</a>
@@ -129,4 +128,4 @@ function estadoBadge(?string $estado): string
         </div>
     </div>
 </div>
-<?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>
+<?php require_once ROOT_DIR . '/resources/views/layout/footer_dashboard.php'; ?>

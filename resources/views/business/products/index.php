@@ -33,7 +33,7 @@
 
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition-all group w-full max-w-sm mx-auto">
 
-                    <div class="w-full h-24 bg-gray-50 border-b border-gray-100 overflow-hidden flex-shrink-0">
+                    <div class="w-full h-24 bg-gray-50 border-b border-gray-100 overflow-hidden shrink-0">
                         <?php if (!empty($p->imagen)): ?>
                             <img src="<?= BASE_URL ?>/img/products/<?= $p->imagen ?>"
                                 alt="<?= htmlspecialchars($p->nombre) ?>"
@@ -53,13 +53,13 @@
                                 <?= htmlspecialchars($p->nombre) ?>
                             </h3>
                             <?php if (isset($p->stock)): ?>
-                                <span class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 <?= $p->stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' ?>">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 <?= $p->stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' ?>">
                                     Stock: <?= intval($p->stock) ?>
                                 </span>
                             <?php endif; ?>
                         </div>
 
-                        <p class="text-sm text-gray-500 mb-4 line-clamp-2 break-words" title="<?= htmlspecialchars($p->descripcion) ?>">
+                        <p class="text-sm text-gray-500 mb-4 line-clamp-2 wrap-break-word" title="<?= htmlspecialchars($p->descripcion) ?>">
                             <?= htmlspecialchars($p->descripcion) ?>
                         </p>
 
@@ -68,7 +68,7 @@
                         </div>
                     </div>
 
-                    <div class="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 flex-shrink-0">
+                    <div class="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 shrink-0">
                         <a href="<?= BASE_URL ?>/business/dashboard/products/<?= $p->id ?>/edit"
                             class="flex-1 text-center py-2 px-3 bg-white border border-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-100 transition-colors">
                             <i class="fa-solid fa-pencil mr-1"></i> Editar
@@ -88,4 +88,4 @@
         </div>
     <?php endif; ?>
 </div>
-<?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>
+<?php require_once ROOT_DIR . '/resources/views/layout/footer_dashboard.php'; ?>

@@ -18,7 +18,7 @@
             <i class="fa-solid fa-plus-circle text-primary mr-2"></i> Añadir horario
         </h2>
         <form action="<?= BASE_URL ?>/business/dashboard/schedules/store" method="POST"
-              class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+            class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
             <?= \App\Core\Session::csrfField() ?>
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-2">Día</label>
@@ -34,14 +34,14 @@
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-2">Apertura</label>
                 <input type="time" name="hora_apertura"
-                       value="<?= htmlspecialchars($_POST['hora_apertura'] ?? '09:00') ?>"
-                       class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-primary" />
+                    value="<?= htmlspecialchars($_POST['hora_apertura'] ?? '09:00') ?>"
+                    class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-primary" />
             </div>
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-2">Cierre</label>
                 <input type="time" name="hora_cierre"
-                       value="<?= htmlspecialchars($_POST['hora_cierre'] ?? '18:00') ?>"
-                       class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-primary" />
+                    value="<?= htmlspecialchars($_POST['hora_cierre'] ?? '18:00') ?>"
+                    class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-primary" />
             </div>
             <div>
                 <button type="submit" class="w-full btn-primary py-3 flex items-center justify-center gap-2">
@@ -78,7 +78,7 @@
                             <td class="px-6 py-4 text-gray-600"><?= htmlspecialchars($sch->hora_cierre) ?></td>
                             <td class="px-6 py-4 text-right">
                                 <form action="<?= BASE_URL ?>/business/dashboard/schedules/<?= $sch->id ?>/delete"
-                                      method="POST" onsubmit="return confirm('¿Eliminar este horario?');">
+                                    method="POST" onsubmit="return confirm('¿Eliminar este horario?');">
                                     <?= \App\Core\Session::csrfField() ?>
                                     <button type="submit"
                                         class="py-1.5 px-3 bg-white border border-red-200 text-red-600 font-bold text-xs rounded-lg hover:bg-red-50 transition-colors">
@@ -93,4 +93,4 @@
         </div>
     <?php endif; ?>
 </div>
-<?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>
+<?php require_once ROOT_DIR . '/resources/views/layout/footer_dashboard.php'; ?>

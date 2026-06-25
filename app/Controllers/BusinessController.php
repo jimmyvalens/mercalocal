@@ -9,6 +9,7 @@ namespace App\Controllers;
 
 use App\Models\Business;
 use App\Models\Category;
+use App\Core\Database;
 use App\Core\Session;
 use App\Core\Middleware;
 use App\Core\Validator;
@@ -195,9 +196,7 @@ class BusinessController
             'provincia'     => ''
         ], $oldInput);
 
-        // die("¡Sí, se está ejecutando showSetup y la variable tiene: " . count($categorias_padre) . " elementos!");
-
-        require ROOT_DIR . '/resources/views/business/setup.php';
+        require ROOT_DIR . '/resources/views/layout/business_form.php';
     }
 
     /**
@@ -215,77 +214,104 @@ class BusinessController
             exit;
         }
 
-        // 2. Saneamiento inicial de strings básicos
-        $data = [
-            'user_id'     => Session::get('user_id'),
-            'nombre'      => trim($_POST['nombre'] ?? ''),
-            'categoria_id' => $_POST['categoria_id'] ?? null,
-            'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'telefono'    => preg_replace('/\s+/', '', $_POST['telefono'] ?? ''), // Limpiar espacios del teléfono
-            'email'       => trim($_POST['email'] ?? ''),
-            'web'         => trim($_POST['web'] ?? ''),
-            'activo'      => 1 // Visible por defecto una vez rellenado el perfil
-        ];
+        $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/uploads/businesses');
 
-        // 3. Validación de campos obligatorios y formatos
-        $validator = new Validator($_POST);
-        $validator->required('nombre', 'El nombre comercial del negocio es obligatorio.')
-            ->required('categoria_id', 'La categoría del comercio es obligatoria.')
-            ->required('descripcion', 'Cuéntanos un poco qué ofrece tu comercio (descripción obligatoria).')
-            ->required('telefono', 'El teléfono de contacto es obligatorio.')
-            ->required('email', 'El correo electrónico comercial es obligatorio.');
+        try {
+            // 2. PROCESAR Y VALIDAR TODO EL FORMULARIO DE GOLPE
+            $formData = \App\Core\BusinessFormHandler::process($_POST);
 
-        if (!$validator->isValid()) {
-            Session::setFlash('error', implode(' ', $validator->getErrors()));
+            // 🔥 SEGURIDAD MÁXIMA: Forzamos el ID del usuario logueado desde la sesión.
+            // Esto evita que un usuario malicioso inyecte un 'user_id' diferente en el POST.
+            $formData['user_id'] = Session::get('user_id');
+
+            // 3. Validación específica del teléfono (9 dígitos exactos)
+            // Tip: Si quieres, puedes mover esta regex dentro de tu BusinessFormHandler más adelante.
+            if (!preg_match('/^\d{9}$/', $formData['telefono'])) {
+                throw new \InvalidArgumentException('El número de teléfono debe constar exactamente de 9 dígitos numéricos.');
+            }
+
+            // 4. PROCESAR IMÁGENES CON TU MÉTODO UNIFICADO
+            // Al ser un Alta, no le pasamos imágenes previas (asume null por defecto)
+            $images = $uploader->uploadBusinessImages($_FILES);
+        } catch (\InvalidArgumentException $e) {
+            // Captura errores de validación de campos de texto o del teléfono
+            Session::setFlash('error', $e->getMessage());
             Session::set('setup_old', $_POST); // Almacenar para repoblar el formulario
             header('Location: ' . BASE_URL . '/business/setup');
             exit;
-        }
-
-        // 4. Validación específica del teléfono (9 dígitos exactos)
-        if (!preg_match('/^\d{9}$/', $data['telefono'])) {
-            Session::setFlash('error', 'El número de teléfono debe constar exactamente de 9 dígitos numéricos.');
+        } catch (\Exception $e) {
+            // Captura errores de imágenes (Formatos no válidos o > 5MB)
+            Session::setFlash('error', 'Error multimedia: ' . $e->getMessage());
             Session::set('setup_old', $_POST);
             header('Location: ' . BASE_URL . '/business/setup');
             exit;
         }
 
-        // 5. Validación de formato de email comercial
-        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            Session::setFlash('error', 'La dirección de correo electrónico introducida no es válida.');
-            Session::set('setup_old', $_POST);
-            header('Location: ' . BASE_URL . '/business/setup');
-            exit;
-        }
+        // ==========================================
+        // 5. PERSISTENCIA ATÓMICA EN BASE DE DATOS
+        // ==========================================
+        $db = Database::getInstance()->getConnection();
 
-        $uploader = new \App\Core\FileUploader();
-
-        $data['logo'] = null;
-        if (isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
-            $data['logo'] = $uploader->upload($_FILES['logo'], 'uploads/logos/');
-        }
-
-        $data['hero'] = null;
-        if (isset($_FILES['hero']) && $_FILES['hero']['error'] === UPLOAD_ERR_OK) {
-            $data['hero'] = $uploader->upload($_FILES['hero'], 'uploads/heroes/');
-        }
-
-        // 6. Persistencia de datos y cierre del ciclo de aislamiento
         try {
-            // Guardamos el comercio en la tabla `business`
-            $businessId = Business::create($data);
+            // 🔑 INICIAMOS LA TRANSACCIÓN
+            $db->beginTransaction();
 
-            // ¡EL PASO CLAVE! Inyectamos el ID recién creado en la sesión de este usuario.
-            // A partir de este milisegundo exacto, el middleware requireBusinessSetup()
-            // le abrirá las puertas de todos sus paneles privados.
+            // PASO A: Insertar los datos básicos en la tabla business
+            // Mantenemos tu regla de negocio: el auto-registro se crea como activo (1) directamente
+            $sqlBus = "INSERT INTO business (nombre, descripcion, telefono, email, web, id_categoria, user_id, activo, logo_path, hero_path, created_at) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, NOW())";
+
+            $stmtBus = $db->prepare($sqlBus);
+            $stmtBus->execute([
+                $formData['nombre'],
+                $formData['descripcion'],
+                $formData['telefono'],
+                $formData['email'],
+                $formData['web'],
+                $formData['categoria_id'],
+                $formData['user_id'],
+                $images['logo_path'], // Ruta limpia (ej: "uploads/businesses/logo_xyz.png")
+                $images['hero_path']   // Ruta limpia (ej: "uploads/businesses/hero_xyz.webp")
+            ]);
+
+            // Capturamos el ID asignado por MySQL para el nuevo comercio
+            $businessId = $db->lastInsertId();
+
+            // PASO B: Insertar la localización en la tabla address
+            $sqlAddr = "INSERT INTO address (calle, numero, codigo_postal, ciudad, provincia) 
+                        VALUES (?, ?, ?, ?, ?)";
+            $stmtAddr = $db->prepare($sqlAddr);
+            $stmtAddr->execute([
+                $formData['calle'],
+                $formData['numero'],
+                $formData['codigo_postal'],
+                $formData['ciudad'],
+                $formData['provincia']
+            ]);
+
+            // Capturamos el ID generado para la dirección física
+            $addressId = $db->lastInsertId();
+
+            // PASO C: Construir el puente relacional en la tabla intermedia
+            $stmtPivot = $db->prepare("INSERT INTO business_address (business_id, address_id) VALUES (?, ?)");
+            $stmtPivot->execute([$businessId, $addressId]);
+
+            // Si todo es consistente, consolidamos los inserts en disco de forma atómica
+            $db->commit();
+
+            // Inyectamos el ID recién creado en la sesión de este usuario
             Session::set('business_id', $businessId);
 
-            Session::setFlash('success', '¡Enhorabuena! El perfil de tu comercio se ha configurado correctamente. Ya puedes gestionar tus productos y servicios.');
+            Session::setFlash('success', '¡Enhorabuena! El perfil de tu comercio se ha configurado correctamente. Ya puedes gestionar tus productos.');
 
             session_write_close();
             header('Location: ' . BASE_URL . '/business/dashboard');
             exit;
         } catch (\Exception $e) {
+            // Si algo falla, revertimos cualquier registro parcial para evitar filas huérfanas
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
             Session::setFlash('error', 'Ocurrió un error inesperado al guardar los datos del comercio: ' . $e->getMessage());
             Session::set('setup_old', $_POST);
             header('Location: ' . BASE_URL . '/business/setup');

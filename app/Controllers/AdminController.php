@@ -208,10 +208,10 @@ class AdminController
 
         // 3. ¡EL CAMBIO CLAVE! Buscamos SOLO las categorías PADRE para el desplegable
         $stmtCategory = $db->query("SELECT id, nombre FROM category WHERE parent_id IS NULL ORDER BY nombre ASC");
-        $category = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
+        $categorias_padre = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
 
 
-        require_once ROOT_DIR . '/resources/views/admin/business_form.php';
+        require_once ROOT_DIR . '/resources/views/layout/business_form.php';
     }
 
     /**
@@ -225,46 +225,31 @@ class AdminController
             die("Token no válido");
         }
 
-        // 2. Recogida de datos del formulario
-        $nombre = trim($_POST['nombre'] ?? '');
-        $descripcion = trim($_POST['descripcion'] ?? '');
-        $telefono = trim($_POST['telefono'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $web = trim($_POST['web'] ?? '');
-        $user_id = $_POST['user_id'] ?? null;
-        $activo = isset($_POST['activo']) ? 1 : 0;
-        $categoria_id = isset($_POST['categoria_id']) ? intval($_POST['categoria_id']) : 0;
-
-        if ($categoria_id <= 0) {
-            throw new \Exception("Debes seleccionar una categoría obligatoriamente.");
-        }
-
-        // Datos de dirección
-        $calle = trim($_POST['calle'] ?? '');
-        $numero = trim($_POST['numero'] ?? '');
-        $codigo_postal = trim($_POST['codigo_postal'] ?? '');
-        $ciudad = trim($_POST['ciudad'] ?? '');
-        $provincia = trim($_POST['provincia'] ?? '');
-
-        // 3. Gestión de archivos
-        $logoPath = null;
-        $heroPath = null;
+        // Instanciamos tu uploader apuntando a la carpeta de comercios
         $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/uploads/businesses');
 
         try {
-            if (!empty($_FILES['logo']['tmp_name'])) {
-                $logoPath = $uploader->upload($_FILES['logo'], 'logo_');
-            }
-            if (!empty($_FILES['hero']['tmp_name'])) {
-                $heroPath = $uploader->upload($_FILES['hero'], 'hero_');
-            }
+            // 2. PROCESAR Y VALIDAR TODO EL FORMULARIO DE GOLPE
+            $formData = \App\Core\BusinessFormHandler::process($_POST);
+
+            // 3. PROCESAR IMÁGENES CON TU MÉTODO UNIFICADO
+            // Nota: Al usar tu FileUploader actualizado, ya devuelve la ruta limpia (ej: "uploads/businesses/archivo.jpg")
+            $images = $uploader->uploadBusinessImages($_FILES);
+        } catch (\InvalidArgumentException $e) {
+            // Captura los errores de validación de campos de texto
+            Session::setFlash('error', 'Por favor, corrige los campos marcados en rojo.');
+            Session::set('setup_old', $_POST); // Conserva los datos escritos para que no se borren
+            header('Location: ' . BASE_URL . '/admin/business/create');
+            exit;
         } catch (\Exception $e) {
-            Session::setFlash('error', $e->getMessage());
+            // Captura errores de imágenes (tamaño > 5MB, formato no válido, etc.)
+            Session::setFlash('error', 'Error multimedia: ' . $e->getMessage());
+            Session::set('setup_old', $_POST);
             header('Location: ' . BASE_URL . '/admin/business/create');
             exit;
         }
 
-        // 4. Transacción (Creación atómica)
+        // 4. PERSISTENCIA ATÓMICA EN BASE DE DATOS
         $db = Database::getInstance()->getConnection();
 
         try {
@@ -275,15 +260,32 @@ class AdminController
                 INSERT INTO address (calle, numero, codigo_postal, ciudad, provincia) 
                 VALUES (?, ?, ?, ?, ?)
             ");
-            $stmtAddr->execute([$calle, $numero, $codigo_postal, $ciudad, $provincia]);
+            $stmtAddr->execute([
+                $formData['calle'],
+                $formData['numero'],
+                $formData['codigo_postal'],
+                $formData['ciudad'],
+                $formData['provincia']
+            ]);
             $addressId = $db->lastInsertId();
 
-            // B) Insertar Negocio
+            // B) Insertar Negocio utilizando los arrays mapeados
             $stmtBus = $db->prepare("
                 INSERT INTO business (nombre, descripcion, telefono, email, web, user_id, activo, logo_path, hero_path, id_categoria) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmtBus->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath, $categoria_id]);
+            $stmtBus->execute([
+                $formData['nombre'],
+                $formData['descripcion'],
+                $formData['telefono'],
+                $formData['email'],
+                $formData['web'],
+                $formData['user_id'],
+                $formData['activo'],
+                $images['logo_path'], // Ruta limpia unificada
+                $images['hero_path'],  // Ruta limpia unificada
+                $formData['categoria_id']
+            ]);
             $businessId = $db->lastInsertId();
 
             // C) Insertar en tabla pivote para unir ambos
@@ -299,10 +301,11 @@ class AdminController
             header('Location: ' . BASE_URL . '/admin/businesses');
             exit;
         } catch (\Exception $e) {
-            $db->rollBack();
-            // Limpiar archivos si se subieron pero la DB falló
-            // (Opcional, pero recomendado si quieres ser muy estricto)
-            Session::setFlash('error', 'Error al crear el comercio: ' . $e->getMessage());
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            Session::setFlash('error', 'Error al guardar en la base de datos: ' . $e->getMessage());
+            Session::set('setup_old', $_POST);
             header('Location: ' . BASE_URL . '/admin/business/create');
             exit;
         }
@@ -336,7 +339,7 @@ class AdminController
 
         // 3. ¡EL CAMBIO CLAVE! Buscamos SOLO las categorías PADRE para el desplegable
         $stmtCategory = $db->query("SELECT id, nombre FROM category WHERE parent_id IS NULL ORDER BY nombre ASC");
-        $category = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
+        $categorias_padre = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
 
         // 4. Buscamos el propietario actual de este negocio
         $stmtUser = $db->prepare('SELECT nombre, email FROM user WHERE id = ?');
@@ -345,7 +348,7 @@ class AdminController
         $business['owner_name'] = $owner ? $owner['nombre'] . ' (' . $owner['email'] . ')' : 'Sin propietario';
 
         // 5. Cargamos la vista con todas las variables listas
-        require_once ROOT_DIR . '/resources/views/admin/business_form.php';
+        require_once ROOT_DIR . '/resources/views/layout/business_form.php';
     }
 
     /**
@@ -359,52 +362,36 @@ class AdminController
             die("Token no válido");
         }
 
-        // 2. Recogida de datos del formulario
-        $nombre = trim($_POST['nombre'] ?? '');
-        $descripcion = trim($_POST['descripcion'] ?? '');
-        $telefono = trim($_POST['telefono'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $web = trim($_POST['web'] ?? '');
-        $user_id = $_POST['user_id'] ?? null;
-        $activo = isset($_POST['activo']) ? 1 : 0;
-        $categoria_id = isset($_POST['categoria_id']) ? intval($_POST['categoria_id']) : 0;
-
-        if ($categoria_id <= 0) {
-            throw new \Exception("Debes seleccionar una categoría obligatoriamente.");
-        }
-
-        $calle = trim($_POST['calle'] ?? '');
-        $numero = trim($_POST['numero'] ?? '');
-        $codigo_postal = trim($_POST['codigo_postal'] ?? '');
-        $ciudad = trim($_POST['ciudad'] ?? '');
-        $provincia = trim($_POST['provincia'] ?? '');
-
-        // 3. Gestión de archivos (solo si se suben nuevos)
+        $db = Database::getInstance()->getConnection();
         $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/uploads/businesses');
 
-        // Obtenemos los paths actuales para no perderlos si no se sube imagen nueva
-        $db = Database::getInstance()->getConnection();
+        // Recuperamos los paths actuales de la BD antes de validar por si no se suben imágenes nuevas
         $stmtCurrent = $db->prepare("SELECT logo_path, hero_path FROM business WHERE id = ?");
         $stmtCurrent->execute([$id]);
-        $currentImages = $stmtCurrent->fetch(PDO::FETCH_ASSOC);
-
-        $logoPath = $currentImages['logo_path'] ?? null;
-        $heroPath = $currentImages['hero_path'] ?? null;
+        $currentImages = $stmtCurrent->fetch(\PDO::FETCH_ASSOC) ?: ['logo_path' => null, 'hero_path' => null];
 
         try {
-            if (!empty($_FILES['logo']['tmp_name'])) {
-                $logoPath = $uploader->upload($_FILES['logo'], 'logo_');
-            }
-            if (!empty($_FILES['hero']['tmp_name'])) {
-                $heroPath = $uploader->upload($_FILES['hero'], 'hero_');
-            }
+            // 2. PROCESAR Y VALIDAR TODO EL FORMULARIO DE GOLPE
+            $formData = \App\Core\BusinessFormHandler::process($_POST);
+
+            // 3. GESTIÓN DE ARCHIVOS UNIFICADA
+            // Si viene vacío $_FILES, conservará $currentImages de la base de datos automáticamente
+            $images = $uploader->uploadBusinessImages($_FILES, $currentImages['logo_path'], $currentImages['hero_path']);
+        } catch (\InvalidArgumentException $e) {
+            // Captura los errores específicos de los inputs de texto
+            Session::setFlash('error', 'Por favor, corrige los campos marcados en rojo.');
+            Session::set('setup_old', $_POST); // Guardamos lo escrito para no vaciar el formulario
+            header('Location: ' . BASE_URL . '/admin/business/' . $id . '/edit');
+            exit;
         } catch (\Exception $e) {
-            Session::setFlash('error', $e->getMessage());
+            // Captura problemas con formatos o tamaños de imágenes
+            Session::setFlash('error', 'Error multimedia: ' . $e->getMessage());
+            Session::set('setup_old', $_POST);
             header('Location: ' . BASE_URL . '/admin/business/' . $id . '/edit');
             exit;
         }
 
-        // 4. Transacción
+        // 4. TRANSACCIÓN DE ACTUALIZACIÓN ATÓMICA
         try {
             $db->beginTransaction();
 
@@ -414,7 +401,19 @@ class AdminController
                 SET nombre = ?, descripcion = ?, telefono = ?, email = ?, web = ?, user_id = ?, activo = ?, logo_path = ?, hero_path = ?, id_categoria = ? 
                 WHERE id = ?
             ");
-            $stmtBus->execute([$nombre, $descripcion, $telefono, $email, $web, $user_id, $activo, $logoPath, $heroPath, $categoria_id, $id]);
+            $stmtBus->execute([
+                $formData['nombre'],
+                $formData['descripcion'],
+                $formData['telefono'],
+                $formData['email'],
+                $formData['web'],
+                $formData['user_id'],
+                $formData['activo'],
+                $images['logo_path'], // Ruta limpia (nueva o conservada)
+                $images['hero_path'],  // Ruta limpia (nueva o conservada)
+                $formData['categoria_id'],
+                $id
+            ]);
 
             // B) Localizar la dirección asociada y actualizarla
             $stmtGetAddr = $db->prepare("SELECT address_id FROM business_address WHERE business_id = ?");
@@ -427,11 +426,24 @@ class AdminController
                     SET calle = ?, numero = ?, codigo_postal = ?, ciudad = ?, provincia = ? 
                     WHERE id = ?
                 ");
-                $stmtAddr->execute([$calle, $numero, $codigo_postal, $ciudad, $provincia, $addressId]);
+                $stmtAddr->execute([
+                    $formData['calle'],
+                    $formData['numero'],
+                    $formData['codigo_postal'],
+                    $formData['ciudad'],
+                    $formData['provincia'],
+                    $addressId
+                ]);
             } else {
-                // Si por alguna razón no existía dirección (caso raro), la insertamos
+                // Si por algún caso raro el comercio no tuviera dirección asociada, la creamos
                 $stmtNewAddr = $db->prepare("INSERT INTO address (calle, numero, codigo_postal, ciudad, provincia) VALUES (?, ?, ?, ?, ?)");
-                $stmtNewAddr->execute([$calle, $numero, $codigo_postal, $ciudad, $provincia]);
+                $stmtNewAddr->execute([
+                    $formData['calle'],
+                    $formData['numero'],
+                    $formData['codigo_postal'],
+                    $formData['ciudad'],
+                    $formData['provincia']
+                ]);
                 $newAddrId = $db->lastInsertId();
 
                 $stmtPivot = $db->prepare("INSERT INTO business_address (business_id, address_id) VALUES (?, ?)");
@@ -444,8 +456,11 @@ class AdminController
             header('Location: ' . BASE_URL . '/admin/businesses');
             exit;
         } catch (\Exception $e) {
-            $db->rollBack();
-            Session::setFlash('error', 'Error al actualizar: ' . $e->getMessage());
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            Session::setFlash('error', 'Error al actualizar en la base de datos: ' . $e->getMessage());
+            Session::set('setup_old', $_POST);
             header('Location: ' . BASE_URL . '/admin/business/' . $id . '/edit');
             exit;
         }

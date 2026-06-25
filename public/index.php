@@ -36,7 +36,7 @@ define('APP_DEBUG', filter_var($debugValue, FILTER_VALIDATE_BOOLEAN));
 define('ROOT_DIR', realpath(__DIR__ . '/..'));
 
 // ── Autocargador de clases del namespace App\ ────────────
-// Mapea App\Core\Session → src/Core/Session.php automáticamente
+// Mapea App\Core\Session → app/Core/Session.php automáticamente
 // siguiendo la convención de directorios PSR-4.
 spl_autoload_register(function ($class) {
     if (strpos($class, 'App\\') === 0) {
@@ -117,11 +117,11 @@ $router->post('/admin/business/{id}/delete', [AdminController::class, 'delete'])
 $router->get('/api/users/search', [\App\Controllers\AdminController::class, 'apiSearch']);
 
 // CRUD de Productos delegado en el Administrador (se declaran ANTES del detalle dinámico)
-$router->get('/admin/business/{business_id}/product/create', [AdminController::class, 'createProduct']);
-$router->post('/admin/business/{business_id}/product/store', [AdminController::class, 'storeProduct']);
-$router->get('/admin/product/{id}/edit', [AdminController::class, 'editProduct']);
-$router->post('/admin/product/{id}/update', [AdminController::class, 'updateProduct']);
-$router->post('/admin/product/{id}/delete', [AdminController::class, 'deleteProduct']);
+// $router->get('/admin/business/{business_id}/product/create', [AdminController::class, 'createProduct']);
+// $router->post('/admin/business/{business_id}/product/store', [AdminController::class, 'storeProduct']);
+// $router->get('/admin/product/{id}/edit', [AdminController::class, 'editProduct']);
+// $router->post('/admin/product/{id}/update', [AdminController::class, 'updateProduct']);
+// $router->post('/admin/product/{id}/delete', [AdminController::class, 'deleteProduct']);
 
 // Detalle del comercio (Ruta dinámica al final del bloque admin)
 $router->get('/admin/business/{id}', [AdminController::class, 'businessDetail']);
@@ -139,12 +139,12 @@ $router->post('/business/dashboard/products/{id}/delete', [BusinessDashboardCont
 $router->post('/business/dashboard/orders/update-status', [BusinessDashboardController::class, 'updateStatus']);
 
 // Servicios (CRUD) dentro del panel de comercio
-$router->get('/business/dashboard/services', [BusinessDashboardController::class, 'servicesIndex']);
-$router->get('/business/dashboard/services/create', [BusinessDashboardController::class, 'servicesCreate']);
-$router->post('/business/dashboard/services/store', [BusinessDashboardController::class, 'servicesStore']);
-$router->get('/business/dashboard/services/{id}/edit', [BusinessDashboardController::class, 'servicesEdit']);
-$router->post('/business/dashboard/services/{id}/update', [BusinessDashboardController::class, 'servicesUpdate']);
-$router->post('/business/dashboard/services/{id}/delete', [BusinessDashboardController::class, 'servicesDelete']);
+// $router->get('/business/dashboard/services', [BusinessDashboardController::class, 'servicesIndex']);
+// $router->get('/business/dashboard/services/create', [BusinessDashboardController::class, 'servicesCreate']);
+// $router->post('/business/dashboard/services/store', [BusinessDashboardController::class, 'servicesStore']);
+// $router->get('/business/dashboard/services/{id}/edit', [BusinessDashboardController::class, 'servicesEdit']);
+// $router->post('/business/dashboard/services/{id}/update', [BusinessDashboardController::class, 'servicesUpdate']);
+// $router->post('/business/dashboard/services/{id}/delete', [BusinessDashboardController::class, 'servicesDelete']);
 
 // Horarios (CRUD simplificado)
 $router->get('/business/dashboard/schedules', [BusinessDashboardController::class, 'schedulesIndex']);
@@ -156,8 +156,8 @@ $router->get('/business/dashboard/settings', [BusinessDashboardController::class
 $router->post('/business/dashboard/settings/update', [BusinessDashboardController::class, 'updateSettings']);
 
 // Sistema de reservas de citas
-$router->get('/business/{id}/reserve', [ReservationController::class, 'showForm']);
-$router->post('/reserve', [ReservationController::class, 'store']);
+// $router->get('/business/{id}/reserve', [ReservationController::class, 'showForm']);
+// $router->post('/reserve', [ReservationController::class, 'store']);
 
 // Ruta genérica de detalle de comercio (debe ir DESPUÉS de las rutas fijas)
 $router->get('/business/{id}', [BusinessController::class, 'detail']);

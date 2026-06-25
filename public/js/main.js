@@ -111,6 +111,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (btnCerrar) {
             btnCerrar.addEventListener('click', () => modal.classList.add('hidden'));
         }
+
+        // Cerrar al hacer click en el fondo (fuera de la tarjeta del modal)
+        modal.addEventListener('click', function (e) {
+            // Si el elemento donde se hizo click es exactamente el contenedor del modal (el fondo oscuro)
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+            }
+        });
     }
 
 

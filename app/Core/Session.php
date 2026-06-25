@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Core/Session.php — Gestión de la sesión de usuario
+// app/Core/Session.php — Gestión de la sesión de usuario
 // Centraliza todas las operaciones con $_SESSION para
 // facilitar el mantenimiento y evitar accesos directos
 // a la superglobal desde los controladores y vistas.
