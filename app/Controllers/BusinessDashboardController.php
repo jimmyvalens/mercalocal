@@ -218,7 +218,7 @@ class BusinessDashboardController
             exit;
         }
 
-        require_once ROOT_DIR . '/resources/views/business/setup.php';
+        require_once ROOT_DIR . '/resources/views/layout/business_form.php';
     }
 
     /**
@@ -250,206 +250,208 @@ class BusinessDashboardController
         exit;
     }
 
-    // ---------------------------------------------------------------------
-    // GESTIÓN DE SERVICIOS
-    // ---------------------------------------------------------------------
+    // // ---------------------------------------------------------------------
+    // // GESTIÓN DE SERVICIOS
+    // // ---------------------------------------------------------------------
 
-    public function servicesIndex()
-    {
-        $business = $this->requireBusinessProfile();
-        $services = \App\Models\Service::getByBusiness($business['id']);
-        require_once ROOT_DIR . '/resources/views/business/services/index.php';
-    }
+    // public function servicesIndex()
+    // {
+    //     $business = $this->requireBusinessProfile();
+    //     $services = \App\Models\Service::getByBusiness($business['id']);
+    //     require_once ROOT_DIR . '/resources/views/business/services/index.php';
+    // }
 
-    public function servicesCreate()
-    {
-        // 1. Cargamos el perfil del comercio
-        $business = $this->requireBusinessProfile();
+    // public function servicesCreate()
+    // {
+    //     die('Estoy aquí y no debería');
 
-        // 2. Extraemos el ID de la categoría principal
-        $comercio_categoria_id = $business['id_categoria'];
+    //     // 1. Cargamos el perfil del comercio
+    //     $business = $this->requireBusinessProfile();
 
-        // 3. Traemos SOLO las subcategorías de tipo 'servicio' para este comercio
-        $cats = \App\Models\Category::getChildrenByParentAndType($comercio_categoria_id, 'servicio');
+    //     // 2. Extraemos el ID de la categoría principal
+    //     $comercio_categoria_id = $business['id_categoria'];
 
-        // 4. Cargamos la vista del formulario de servicios
-        require_once ROOT_DIR . '/resources/views/business/services/form.php';
-    }
+    //     // 3. Traemos SOLO las subcategorías de tipo 'servicio' para este comercio
+    //     $cats = \App\Models\Category::getChildrenByParentAndType($comercio_categoria_id, 'servicio');
 
-    public function servicesStore()
-    {
-        $business = $this->requireBusinessProfile();
+    //     // 4. Cargamos la vista del formulario de servicios
+    //     require_once ROOT_DIR . '/resources/views/business/services/form.php';
+    // }
 
-        $required = ['nombre', 'descripcion', 'duracion', 'precio'];
-        foreach ($required as $field) {
-            if (empty($_POST[$field] ?? null)) {
-                Session::setFlash('error', 'Campo obligatorio faltante: ' . ucfirst($field));
-                header('Location: ' . BASE_URL . '/business/dashboard/services/create');
-                exit;
-            }
-        }
+    // public function servicesStore()
+    // {
+    //     $business = $this->requireBusinessProfile();
 
-        // 🔥 SOLUCIÓN AL ERROR 1366: Forzamos null real si llega un string vacío
-        $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
+    //     $required = ['nombre', 'descripcion', 'duracion', 'precio'];
+    //     foreach ($required as $field) {
+    //         if (empty($_POST[$field] ?? null)) {
+    //             Session::setFlash('error', 'Campo obligatorio faltante: ' . ucfirst($field));
+    //             header('Location: ' . BASE_URL . '/business/dashboard/services/create');
+    //             exit;
+    //         }
+    //     }
 
-        // 📷 PROCESAR IMAGEN (Nuevo)
-        $imagen_nombre = null;
-        if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
-            $fileTmpPath = $_FILES['imagen']['tmp_name'];
-            $fileName = $_FILES['imagen']['name'];
-            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    //     // 🔥 SOLUCIÓN AL ERROR 1366: Forzamos null real si llega un string vacío
+    //     $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
 
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-            if (in_array($fileExtension, $allowedExtensions)) {
-                $uploadDir = ROOT_DIR . '/public/img/services/';
-                // Si la carpeta no existe, la creamos
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
-                }
-                // Generamos un nombre único para evitar duplicados
-                $imagen_nombre = uniqid('srv_', true) . '.' . $fileExtension;
-                move_uploaded_file($fileTmpPath, $uploadDir . $imagen_nombre);
-            }
-        }
+    //     // 📷 PROCESAR IMAGEN (Nuevo)
+    //     $imagen_nombre = null;
+    //     if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
+    //         $fileTmpPath = $_FILES['imagen']['tmp_name'];
+    //         $fileName = $_FILES['imagen']['name'];
+    //         $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
 
-        $data = [
-            'business_id' => $business['id'],
-            'category_id' => $category_id, // Guardado seguro
-            'nombre' => trim($_POST['nombre']),
-            'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'duracion' => intval($_POST['duracion'] ?? 0),
-            'precio' => floatval($_POST['precio'] ?? 0),
-            'activo' => isset($_POST['activo']) ? 1 : 0,
-            'imagen' => $imagen_nombre // Guardamos el nombre en la BD
-        ];
+    //         $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    //         if (in_array($fileExtension, $allowedExtensions)) {
+    //             $uploadDir = ROOT_DIR . '/public/img/services/';
+    //             // Si la carpeta no existe, la creamos
+    //             if (!is_dir($uploadDir)) {
+    //                 mkdir($uploadDir, 0755, true);
+    //             }
+    //             // Generamos un nombre único para evitar duplicados
+    //             $imagen_nombre = uniqid('srv_', true) . '.' . $fileExtension;
+    //             move_uploaded_file($fileTmpPath, $uploadDir . $imagen_nombre);
+    //         }
+    //     }
 
-        try {
-            \App\Models\Service::create($data);
-            Session::setFlash('success', 'Servicio creado exitosamente.');
-            header('Location: ' . BASE_URL . '/business/dashboard/services');
-            exit;
-        } catch (\Throwable $e) {
-            // Si la base de datos falla, limpiamos la imagen física que acabamos de subir
-            if ($imagen_nombre && file_exists(ROOT_DIR . '/public/img/services/' . $imagen_nombre)) {
-                @unlink(ROOT_DIR . '/public/img/services/' . $imagen_nombre);
-            }
-            Session::setFlash('error', 'Error al crear el servicio: ' . $e->getMessage());
-            header('Location: ' . BASE_URL . '/business/dashboard/services/create');
-            exit;
-        }
-    }
+    //     $data = [
+    //         'business_id' => $business['id'],
+    //         'category_id' => $category_id, // Guardado seguro
+    //         'nombre' => trim($_POST['nombre']),
+    //         'descripcion' => trim($_POST['descripcion'] ?? ''),
+    //         'duracion' => intval($_POST['duracion'] ?? 0),
+    //         'precio' => floatval($_POST['precio'] ?? 0),
+    //         'activo' => isset($_POST['activo']) ? 1 : 0,
+    //         'imagen' => $imagen_nombre // Guardamos el nombre en la BD
+    //     ];
 
-    public function servicesEdit($id)
-    {
-        $business = $this->requireBusinessProfile();
-        $service = \App\Models\Service::findById($id);
+    //     try {
+    //         \App\Models\Service::create($data);
+    //         Session::setFlash('success', 'Servicio creado exitosamente.');
+    //         header('Location: ' . BASE_URL . '/business/dashboard/services');
+    //         exit;
+    //     } catch (\Throwable $e) {
+    //         // Si la base de datos falla, limpiamos la imagen física que acabamos de subir
+    //         if ($imagen_nombre && file_exists(ROOT_DIR . '/public/img/services/' . $imagen_nombre)) {
+    //             @unlink(ROOT_DIR . '/public/img/services/' . $imagen_nombre);
+    //         }
+    //         Session::setFlash('error', 'Error al crear el servicio: ' . $e->getMessage());
+    //         header('Location: ' . BASE_URL . '/business/dashboard/services/create');
+    //         exit;
+    //     }
+    // }
 
-        if (!$service || $service->business_id != $business['id']) {
-            Session::setFlash('error', 'Servicio no encontrado.');
-            header('Location: ' . BASE_URL . '/business/dashboard/services');
-            exit;
-        }
+    // public function servicesEdit($id)
+    // {
+    //     $business = $this->requireBusinessProfile();
+    //     $service = \App\Models\Service::findById($id);
 
-        // 🌟 CAMBIO AQUÍ: Filtramos dinámicamente usando el id_categoria del comercio
-        $cats = \App\Models\Category::getChildrenByParentAndType($business['id_categoria'], 'servicio');
+    //     if (!$service || $service->business_id != $business['id']) {
+    //         Session::setFlash('error', 'Servicio no encontrado.');
+    //         header('Location: ' . BASE_URL . '/business/dashboard/services');
+    //         exit;
+    //     }
 
-        require_once ROOT_DIR . '/resources/views/business/services/form.php';
-    }
+    //     // 🌟 CAMBIO AQUÍ: Filtramos dinámicamente usando el id_categoria del comercio
+    //     $cats = \App\Models\Category::getChildrenByParentAndType($business['id_categoria'], 'servicio');
 
-    public function servicesUpdate($id)
-    {
-        $business = $this->requireBusinessProfile();
-        $service = \App\Models\Service::findById($id);
+    //     require_once ROOT_DIR . '/resources/views/business/services/form.php';
+    // }
 
-        if (!$service || $service->business_id != $business['id']) {
-            Session::setFlash('error', 'Servicio no encontrado.');
-            header('Location: ' . BASE_URL . '/business/dashboard/services');
-            exit;
-        }
+    // public function servicesUpdate($id)
+    // {
+    //     $business = $this->requireBusinessProfile();
+    //     $service = \App\Models\Service::findById($id);
 
-        $required = ['nombre', 'descripcion', 'duracion', 'precio'];
-        foreach ($required as $field) {
-            if (empty($_POST[$field] ?? null)) {
-                Session::setFlash('error', 'Campo obligatorio faltante: ' . ucfirst($field));
-                header('Location: ' . BASE_URL . '/business/dashboard/services/' . $id . '/edit');
-                exit;
-            }
-        }
+    //     if (!$service || $service->business_id != $business['id']) {
+    //         Session::setFlash('error', 'Servicio no encontrado.');
+    //         header('Location: ' . BASE_URL . '/business/dashboard/services');
+    //         exit;
+    //     }
 
-        // 🔥 SOLUCIÓN AL ERROR 1366: Mismo tratamiento para la edición
-        $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
+    //     $required = ['nombre', 'descripcion', 'duracion', 'precio'];
+    //     foreach ($required as $field) {
+    //         if (empty($_POST[$field] ?? null)) {
+    //             Session::setFlash('error', 'Campo obligatorio faltante: ' . ucfirst($field));
+    //             header('Location: ' . BASE_URL . '/business/dashboard/services/' . $id . '/edit');
+    //             exit;
+    //         }
+    //     }
 
-        // 📷 PROCESAR NUEVA IMAGEN EN EDICIÓN (Nuevo)
-        $imagen_nombre = $service->imagen; // Mantenemos la actual por defecto
-        if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
-            $fileTmpPath = $_FILES['imagen']['tmp_name'];
-            $fileName = $_FILES['imagen']['name'];
-            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    //     // 🔥 SOLUCIÓN AL ERROR 1366: Mismo tratamiento para la edición
+    //     $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
 
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-            if (in_array($fileExtension, $allowedExtensions)) {
-                $uploadDir = ROOT_DIR . '/public/img/services/';
+    //     // 📷 PROCESAR NUEVA IMAGEN EN EDICIÓN (Nuevo)
+    //     $imagen_nombre = $service->imagen; // Mantenemos la actual por defecto
+    //     if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
+    //         $fileTmpPath = $_FILES['imagen']['tmp_name'];
+    //         $fileName = $_FILES['imagen']['name'];
+    //         $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
 
-                // Si ya tenía una foto vieja en el disco, la borramos para no acumular basura
-                if (!empty($service->imagen) && file_exists($uploadDir . $service->imagen)) {
-                    @unlink($uploadDir . $service->imagen);
-                }
+    //         $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    //         if (in_array($fileExtension, $allowedExtensions)) {
+    //             $uploadDir = ROOT_DIR . '/public/img/services/';
 
-                $imagen_nombre = uniqid('srv_', true) . '.' . $fileExtension;
-                move_uploaded_file($fileTmpPath, $uploadDir . $imagen_nombre);
-            }
-        }
+    //             // Si ya tenía una foto vieja en el disco, la borramos para no acumular basura
+    //             if (!empty($service->imagen) && file_exists($uploadDir . $service->imagen)) {
+    //                 @unlink($uploadDir . $service->imagen);
+    //             }
 
-        $data = [
-            'category_id' => $category_id,
-            'nombre' => trim($_POST['nombre']),
-            'descripcion' => trim($_POST['descripcion']),
-            'duracion' => intval($_POST['duracion']),
-            'precio' => floatval($_POST['precio']),
-            'activo' => isset($_POST['activo']) ? 1 : 0,
-            'imagen' => $imagen_nombre // Actualizamos el registro de la imagen
-        ];
+    //             $imagen_nombre = uniqid('srv_', true) . '.' . $fileExtension;
+    //             move_uploaded_file($fileTmpPath, $uploadDir . $imagen_nombre);
+    //         }
+    //     }
 
-        try {
-            \App\Models\Service::update($id, $data);
-            Session::setFlash('success', 'Servicio actualizado.');
-            header('Location: ' . BASE_URL . '/business/dashboard/services');
-            exit;
-        } catch (\Throwable $e) {
-            Session::setFlash('error', 'Error al actualizar el servicio: ' . $e->getMessage());
-            header('Location: ' . BASE_URL . '/business/dashboard/services/' . $id . '/edit');
-            exit;
-        }
-    }
+    //     $data = [
+    //         'category_id' => $category_id,
+    //         'nombre' => trim($_POST['nombre']),
+    //         'descripcion' => trim($_POST['descripcion']),
+    //         'duracion' => intval($_POST['duracion']),
+    //         'precio' => floatval($_POST['precio']),
+    //         'activo' => isset($_POST['activo']) ? 1 : 0,
+    //         'imagen' => $imagen_nombre // Actualizamos el registro de la imagen
+    //     ];
 
-    public function servicesDelete($id)
-    {
-        $business = $this->requireBusinessProfile();
-        $service = \App\Models\Service::findById($id);
+    //     try {
+    //         \App\Models\Service::update($id, $data);
+    //         Session::setFlash('success', 'Servicio actualizado.');
+    //         header('Location: ' . BASE_URL . '/business/dashboard/services');
+    //         exit;
+    //     } catch (\Throwable $e) {
+    //         Session::setFlash('error', 'Error al actualizar el servicio: ' . $e->getMessage());
+    //         header('Location: ' . BASE_URL . '/business/dashboard/services/' . $id . '/edit');
+    //         exit;
+    //     }
+    // }
 
-        if (!$service || $service->business_id != $business['id']) {
-            Session::setFlash('error', 'Servicio no encontrado.');
-            header('Location: ' . BASE_URL . '/business/dashboard/services');
-            exit;
-        }
+    // public function servicesDelete($id)
+    // {
+    //     $business = $this->requireBusinessProfile();
+    //     $service = \App\Models\Service::findById($id);
 
-        try {
-            // 📷 LIMPIEZA DE DISCO AL ELIMINAR (Nuevo)
-            if (!empty($service->imagen)) {
-                $filePatch = ROOT_DIR . '/public/img/services/' . $service->imagen;
-                if (file_exists($filePatch)) {
-                    @unlink($filePatch);
-                }
-            }
+    //     if (!$service || $service->business_id != $business['id']) {
+    //         Session::setFlash('error', 'Servicio no encontrado.');
+    //         header('Location: ' . BASE_URL . '/business/dashboard/services');
+    //         exit;
+    //     }
 
-            \App\Models\Service::delete($id);
-            Session::setFlash('success', 'Servicio eliminado.');
-        } catch (\Throwable $e) {
-            Session::setFlash('error', 'Error al eliminar: ' . $e->getMessage());
-        }
-        header('Location: ' . BASE_URL . '/business/dashboard/services');
-        exit;
-    }
+    //     try {
+    //         // 📷 LIMPIEZA DE DISCO AL ELIMINAR (Nuevo)
+    //         if (!empty($service->imagen)) {
+    //             $filePatch = ROOT_DIR . '/public/img/services/' . $service->imagen;
+    //             if (file_exists($filePatch)) {
+    //                 @unlink($filePatch);
+    //             }
+    //         }
+
+    //         \App\Models\Service::delete($id);
+    //         Session::setFlash('success', 'Servicio eliminado.');
+    //     } catch (\Throwable $e) {
+    //         Session::setFlash('error', 'Error al eliminar: ' . $e->getMessage());
+    //     }
+    //     header('Location: ' . BASE_URL . '/business/dashboard/services');
+    //     exit;
+    // }
 
     // ---------------------------------------------------------------------
     // GESTIÓN DE HORARIOS
@@ -800,45 +802,182 @@ class BusinessDashboardController
 
     public function settings()
     {
+        // 1. Obtener el perfil básico del comercio
         $business = $this->requireBusinessProfile();
-        require_once ROOT_DIR . '/resources/views/business/settings.php';
-    }
 
-    public function updateSettings()
-    {
-        $business = $this->requireBusinessProfile();
         $db = Database::getInstance()->getConnection();
 
-        $data = [
-            'nombre' => trim($_POST['nombre'] ?? ''),
-            'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'telefono' => trim($_POST['telefono'] ?? ''),
-            'email' => trim($_POST['email'] ?? ''),
-            'web' => trim($_POST['web'] ?? ''),
-        ];
+        // 🔑 ASEGURAMOS EL ID DEL NEGOCIO
+        // Si por algún motivo $business['id'] no estuviera definido, usamos el de la sesión como salvavidas
+        $businessId = $business['id'] ?? Session::get('business_id');
 
-        if (empty($data['nombre']) || empty($data['descripcion']) || empty($data['telefono']) || empty($data['email'])) {
-            Session::setFlash('error', 'Los campos nombre, descripción, teléfono y email son obligatorios.');
+        // 2. Buscamos el address_id en la tabla pivote (IGUAL que hace tu AdminController)
+        $stmtGetAddr = $db->prepare("SELECT address_id FROM business_address WHERE business_id = ?");
+        $stmtGetAddr->execute([$businessId]);
+        $addressId = $stmtGetAddr->fetchColumn();
+
+        if ($addressId) {
+            // 3. Si existe el puente, traemos los campos específicos de la tabla address
+            $stmtAddr = $db->prepare("SELECT calle, numero, codigo_postal, ciudad, provincia FROM address WHERE id = ?");
+            $stmtAddr->execute([$addressId]);
+            $address = $stmtAddr->fetch(PDO::FETCH_ASSOC);
+
+            if ($address) {
+                // 🔑 ASIGNACIÓN MANUAL: Evitamos usar array_merge para que el 'id' de la dirección 
+                // NO destruya ni pise el 'id' del negocio en la vista.
+                $business['calle']         = $address['calle'];
+                $business['numero']        = $address['numero'];
+                $business['codigo_postal'] = $address['codigo_postal'];
+                $business['ciudad']        = $address['ciudad'];
+                $business['provincia']     = $address['provincia'];
+            }
+        } else {
+            // Colchón de seguridad para comercios nuevos que entran por primera vez
+            $business['calle']         = '';
+            $business['numero']        = '';
+            $business['codigo_postal'] = '';
+            $business['ciudad']        = '';
+            $business['provincia']     = '';
+        }
+
+        // 4. Cargar las categorías padre para el select unificado
+        $stmtCategory = $db->query("SELECT id, nombre FROM category WHERE parent_id IS NULL ORDER BY nombre ASC");
+        $categorias_padre = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
+
+        // 5. Definir el rol del panel actual
+        $rol = 'business';
+
+        // 6. Cargar la vista compartida
+        require_once ROOT_DIR . '/resources/views/layout/business_form.php';
+    }
+
+    /**
+     * Actualiza la configuración y dirección del comercio desde el panel del comerciante.
+     * POST /business/dashboard/settings
+     */
+    public function updateSettings()
+    {
+        // Recuperamos el perfil actual del negocio (debe contener id, logo_path y hero_path)
+        $business = $this->requireBusinessProfile();
+        $db = Database::getInstance()->getConnection();
+        $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/uploads/businesses');
+
+        try {
+            // 1. PROCESAR Y VALIDAR TODO EL FORMULARIO DE GOLPE
+            $formData = \App\Core\BusinessFormHandler::process($_POST);
+
+            // 2. Validación específica del teléfono (9 dígitos exactos) para paridad con setup()
+            if (!preg_match('/^\d{9}$/', $formData['telefono'])) {
+                throw new \InvalidArgumentException('El número de teléfono debe constar exactamente de 9 dígitos numéricos.');
+            }
+
+            // 3. GESTIÓN DE ARCHIVOS UNIFICADA
+            // Pasamos los paths actuales guardados en $business para conservarlos si no se sube nada nuevo
+            $images = $uploader->uploadBusinessImages(
+                $_FILES,
+                $business['logo_path'] ?? null,
+                $business['hero_path'] ?? null
+            );
+        } catch (\InvalidArgumentException $e) {
+            // Captura errores de validación de campos de texto o del teléfono
+            Session::setFlash('error', $e->getMessage());
+            Session::set('setup_old', $_POST); // Almacenar para repoblar en caso de error
+            header('Location: ' . BASE_URL . '/business/dashboard/settings');
+            exit;
+        } catch (\Exception $e) {
+            // Captura errores de imágenes (Formatos incorrectos, archivos corruptos, etc.)
+            Session::setFlash('error', 'Error multimedia: ' . $e->getMessage());
+            Session::set('setup_old', $_POST);
             header('Location: ' . BASE_URL . '/business/dashboard/settings');
             exit;
         }
 
+        // ==========================================
+        // 4. TRANSACCIÓN ATÓMICA EN BASE DE DATOS
+        // ==========================================
         try {
-            $sql = "UPDATE business SET nombre = ?, descripcion = ?, telefono = ?, email = ?, web = ?, updated_at = NOW() WHERE id = ?";
-            $stmt = $db->prepare($sql);
-            $stmt->execute([
-                $data['nombre'],
-                $data['descripcion'],
-                $data['telefono'],
-                $data['email'],
-                $data['web'],
-                $business['id'],
+            $db->beginTransaction();
+
+            // ACCIÓN A: Actualizar datos básicos e imágenes en la tabla business
+            // 🔒 SEGURIDAD: Como este es el panel del comerciante, bajo ningún concepto 
+            // incluimos en el UPDATE campos críticos como 'user_id' o 'activo'.
+            $sqlBus = "UPDATE business SET 
+                        nombre = ?, 
+                        descripcion = ?, 
+                        telefono = ?, 
+                        email = ?, 
+                        web = ?, 
+                        logo_path = ?, 
+                        hero_path = ?, 
+                        id_categoria = ?, 
+                        updated_at = NOW() 
+                    WHERE id = ?";
+
+            $stmtBus = $db->prepare($sqlBus);
+            $stmtBus->execute([
+                $formData['nombre'],
+                $formData['descripcion'],
+                $formData['telefono'],
+                $formData['email'],
+                $formData['web'],
+                $images['logo_path'], // Nueva ruta física o la que ya existía
+                $images['hero_path'],  // Nueva ruta física o la que ya existía
+                $formData['categoria_id'],
+                $business['id']
             ]);
-            Session::setFlash('success', 'Perfil actualizado correctamente.');
-        } catch (\Throwable $e) {
-            Session::setFlash('error', 'Error al actualizar: ' . $e->getMessage());
+
+            // ACCIÓN B: Buscar si ya tiene una dirección asociada en la tabla pivote
+            $stmtGetAddr = $db->prepare("SELECT address_id FROM business_address WHERE business_id = ?");
+            $stmtGetAddr->execute([$business['id']]);
+            $addressId = $stmtGetAddr->fetchColumn();
+
+            if ($addressId) {
+                // Si ya existe la dirección, se hace UPDATE en la tabla address
+                $sqlAddr = "UPDATE address SET 
+                            calle = ?, 
+                            numero = ?, 
+                            codigo_postal = ?, 
+                            ciudad = ?, 
+                            provincia = ? 
+                        WHERE id = ?";
+                $stmtAddr = $db->prepare($sqlAddr);
+                $stmtAddr->execute([
+                    $formData['calle'],
+                    $formData['numero'],
+                    $formData['codigo_postal'],
+                    $formData['ciudad'],
+                    $formData['provincia'],
+                    $addressId
+                ]);
+            } else {
+                // Si por algún motivo raro inicial no tenía dirección, la creamos y vinculamos
+                $sqlNewAddr = "INSERT INTO address (calle, numero, codigo_postal, ciudad, provincia) VALUES (?, ?, ?, ?, ?)";
+                $stmtNewAddr = $db->prepare($sqlNewAddr);
+                $stmtNewAddr->execute([
+                    $formData['calle'],
+                    $formData['numero'],
+                    $formData['codigo_postal'],
+                    $formData['ciudad'],
+                    $formData['provincia']
+                ]);
+                $newAddrId = $db->lastInsertId();
+
+                $stmtPivot = $db->prepare("INSERT INTO business_address (business_id, address_id) VALUES (?, ?)");
+                $stmtPivot->execute([$business['id'], $newAddrId]);
+            }
+
+            // Si todo es correcto, consolidamos la transacción
+            $db->commit();
+            Session::setFlash('success', 'Perfil y dirección actualizados correctamente.');
+        } catch (\Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            Session::setFlash('error', 'Error al guardar los cambios en la base de datos: ' . $e->getMessage());
+            Session::set('setup_old', $_POST);
         }
-        header('Location: ' . BASE_URL . '/business/dashboard/settings');
+
+        header('Location: ' . BASE_URL . '/business/dashboard');
         exit;
     }
 }

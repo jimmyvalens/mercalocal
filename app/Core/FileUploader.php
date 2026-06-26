@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Core/FileUploader.php — Utilidad para subida segura
+// app/Core/FileUploader.php — Utilidad para subida segura
 // =========================================================
 namespace App\Core;
 
@@ -64,5 +64,42 @@ class FileUploader
         }
 
         return false;
+    }
+
+    /**
+     * 🔥 MÉTODO UNIFICADO PARA IMÁGENES DE COMERCIOS
+     * Procesa de golpe Logo y Hero aprovechando las validaciones seguras de esta clase.
+     * Soporta creación (parámetros null) y edición (pasando las rutas actuales de la BD).
+     * * @param array $files El array global $_FILES
+     * @param string|null $currentLogo Ruta actual del logo guardada en BD (para edición)
+     * @param string|null $currentHero Ruta actual del hero guardada en BD (para edición)
+     * @return array Con las rutas definitivas listas para impactar en la BD
+     */
+    public function uploadBusinessImages(array $files, ?string $currentLogo = null, ?string $currentHero = null): array
+    {
+        // Por defecto mantenemos lo que hay (si es creación será null, si es edición conservará la foto vieja)
+        $logoPath = $currentLogo;
+        $heroPath = $currentHero;
+
+        // 1. Procesar el Logo (input name="logo")
+        if (isset($files['logo']) && !empty($files['logo']['tmp_name'])) {
+            $uploadedLogo = $this->upload($files['logo'], 'logo_');
+            if ($uploadedLogo !== false) {
+                $logoPath = $uploadedLogo; // Guardará algo como: "uploads/businesses/logo_64b2a.jpg"
+            }
+        }
+
+        // 2. Procesar el Banner/Hero (input name="hero")
+        if (isset($files['hero']) && !empty($files['hero']['tmp_name'])) {
+            $uploadedHero = $this->upload($files['hero'], 'hero_');
+            if ($uploadedHero !== false) {
+                $heroPath = $uploadedHero; // Guardará algo como: "uploads/businesses/hero_c3b1a.webp"
+            }
+        }
+
+        return [
+            'logo_path' => $logoPath,
+            'hero_path' => $heroPath
+        ];
     }
 }
