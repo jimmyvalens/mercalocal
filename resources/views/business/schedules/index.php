@@ -1,3 +1,38 @@
+<?php
+// Recuperamos el mensaje flash una sola vez
+$flash = \App\Core\Session::getFlash();
+?>
+
+<?php if ($flash): ?>
+    <script>
+        // 🌟 CORREGIDO: Escuchamos a 'document', que siempre existe desde el segundo uno
+        document.addEventListener('DOMContentLoaded', function() {
+            const isSuccess = '<?= $flash['type'] ?>' === 'success';
+
+            Swal.fire({
+                title: isSuccess ? '¡Hecho!' : 'Hubo un problema',
+                text: '<?= htmlspecialchars($flash['message'], ENT_QUOTES, 'UTF-8') ?>',
+                icon: '<?= $flash['type'] ?>',
+                confirmButtonColor: isSuccess ? '#4f46e5' : '#ef4444',
+                customClass: {
+                    popup: 'rounded-2xl border border-gray-100 shadow-xl'
+                }
+            });
+        });
+    </script>
+<?php endif; ?>
+<?php $errorMsg = \App\Core\Session::getFlash(); ?>
+<?php if ($errorMsg): ?>
+    <script>
+        Swal.fire({
+            icon: 'error',
+            title: '¡Vaya!',
+            text: '<?= htmlspecialchars($errorMsg) ?>',
+            confirmButtonColor: '#3b82f6'
+        });
+    </script>
+<?php endif; ?>
+
 <?php require_once ROOT_DIR . '/resources/views/main_header.php'; ?>
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
@@ -24,10 +59,14 @@
                 <label class="block text-sm font-bold text-gray-700 mb-2">Día</label>
                 <select name="dia_semana"
                     class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-primary">
-                    <?php for ($i = 0; $i < 7; $i++): ?>
+                    <?php
+                    // Array ordenado de Lunes (1) a Domingo (7)
+                    $nombresDias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+                    for ($i = 1; $i <= 7; $i++):
+                    ?>
                         <option value="<?= $i ?>" <?= (isset($_POST['dia_semana']) && $_POST['dia_semana'] == $i) ? 'selected' : '' ?>>
-                            <?= ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][$i] ?>
-                        </option>
+                            <?= $nombresDias[$i - 1] ?> </option>
                     <?php endfor; ?>
                 </select>
             </div>
@@ -44,7 +83,7 @@
                     class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:ring-primary" />
             </div>
             <div>
-                <button type="submit" class="w-full btn-primary py-3 flex items-center justify-center gap-2">
+                <button type="submit" class="w-full btn-primary py-3 flex items-center justify-center gap-2 cursor-pointer">
                     <i class="fa-solid fa-plus"></i> Agregar
                 </button>
             </div>
@@ -77,14 +116,21 @@
                             <td class="px-6 py-4 text-gray-600"><?= htmlspecialchars($sch->hora_apertura) ?></td>
                             <td class="px-6 py-4 text-gray-600"><?= htmlspecialchars($sch->hora_cierre) ?></td>
                             <td class="px-6 py-4 text-right">
+
                                 <form action="<?= BASE_URL ?>/business/dashboard/schedules/<?= $sch->id ?>/delete"
-                                    method="POST" onsubmit="return confirm('¿Eliminar este horario?');">
+                                    method="POST"
+                                    class="form-eliminar inline"
+                                    data-titulo="¿Eliminar este horario?"
+                                    data-texto="Esta acción quitará este rango horario del panel de tu comercio.">
+
                                     <?= \App\Core\Session::csrfField() ?>
+
                                     <button type="submit"
-                                        class="py-1.5 px-3 bg-white border border-red-200 text-red-600 font-bold text-xs rounded-lg hover:bg-red-50 transition-colors">
+                                        class="py-1.5 px-3 bg-white border border-red-200 text-red-600 font-bold text-xs rounded-lg hover:bg-red-50 transition-colors cursor-pointer">
                                         <i class="fa-solid fa-trash mr-1"></i> Eliminar
                                     </button>
                                 </form>
+
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -93,4 +139,9 @@
         </div>
     <?php endif; ?>
 </div>
+
+<script>
+    window.BASE_URL = "<?= BASE_URL ?>";
+</script>
+<script src="<?= BASE_URL ?>/js/main.js"></script>
 <?php require_once ROOT_DIR . '/resources/views/layout/footer_dashboard.php'; ?>

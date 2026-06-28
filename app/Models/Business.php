@@ -50,13 +50,11 @@ class Business
 
         $db = Database::getInstance()->getConnection();
 
-        // Consulta base: lista comercios activos con sus categorías agrupadas
-        $sql = "SELECT b.*, GROUP_CONCAT(DISTINCT c.nombre SEPARATOR ', ') as categorias
-                FROM business b
-                LEFT JOIN product p  ON b.id = p.business_id
-                LEFT JOIN service s  ON b.id = s.business_id
-                LEFT JOIN category c ON p.category_id = c.id OR s.category_id = c.id
-                WHERE b.activo = 1";
+        // Consulta base corregida: Trae el comercio y SOLO su categoría principal
+        $sql = "SELECT b.*, c.nombre as categorias
+        FROM business b
+        LEFT JOIN category c ON b.id_categoria = c.id
+        WHERE b.activo = 1";
 
         $params = [];
 
@@ -66,11 +64,11 @@ class Business
             $params[] = '%' . $search . '%';
         }
 
-        // Filtro por categoría (aplica a productos y servicios)
+        // Filtro por categoría (restringido únicamente a productos)
+        // Filtro por categoría del comercio (b.id_categoria)
         if (!empty($categoryId)) {
-            $sql .= " AND (p.category_id = ? OR s.category_id = ?)";
-            $params[] = $categoryId;
-            $params[] = $categoryId;
+            $sql .= " AND b.id_categoria = ?";
+            $params[] = (int)$categoryId; // Forzamos a entero por seguridad
         }
 
         $sql .= " GROUP BY b.id"; // Agrupar para que GROUP_CONCAT funcione correctamente
@@ -103,23 +101,25 @@ class Business
     {
         $db = Database::getInstance()->getConnection();
 
+        // Consulta base limpia: solo cruzamos con productos físicos
         $sql = "SELECT COUNT(DISTINCT b.id) as total
                 FROM business b
-                LEFT JOIN product p  ON b.id = p.business_id
-                LEFT JOIN service s  ON b.id = s.business_id
+                LEFT JOIN product p ON b.id = p.business_id
                 WHERE b.activo = 1";
 
         $params = [];
 
+        // Filtro por nombre del comercio
         if (!empty($search)) {
             $sql .= " AND b.nombre LIKE ?";
             $params[] = '%' . $search . '%';
         }
 
+        // Filtro por categoría (restringido únicamente a productos)
+        // Filtro por categoría del comercio (b.id_categoria)
         if (!empty($categoryId)) {
-            $sql .= " AND (p.category_id = ? OR s.category_id = ?)";
-            $params[] = $categoryId;
-            $params[] = $categoryId;
+            $sql .= " AND b.id_categoria = ?";
+            $params[] = (int)$categoryId;
         }
 
         $stmt = $db->prepare($sql);
@@ -143,32 +143,32 @@ class Business
         return $stmt->fetch();
     }
 
-    /**
-     * Obtener rating promedio y total de reseñas
-     */
-    public function getRating()
-    {
-        return \App\Models\Review::getAverageRating($this->id);
-    }
+    // /**
+    //  * Obtener rating promedio y total de reseñas
+    //  */
+    // public function getRating()
+    // {
+    //     return \App\Models\Review::getAverageRating($this->id);
+    // }
 
-    /**
-     * Devuelve todos los servicios activos de este comercio
-     * junto con el nombre de su categoría.
-     *
-     * @return array Array asociativo con los servicios
-     */
-    public function getServices()
-    {
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare(
-            "SELECT s.*, s.duracion_minutos AS duracion, c.nombre as category_name
-             FROM service s
-             LEFT JOIN category c ON s.category_id = c.id
-             WHERE s.business_id = ? AND s.activo = 1"
-        );
-        $stmt->execute([$this->id]);
-        return $stmt->fetchAll();
-    }
+    // /**
+    //  * Devuelve todos los servicios activos de este comercio
+    //  * junto con el nombre de su categoría.
+    //  *
+    //  * @return array Array asociativo con los servicios
+    //  */
+    // public function getServices()
+    // {
+    //     $db = Database::getInstance()->getConnection();
+    //     $stmt = $db->prepare(
+    //         "SELECT s.*, s.duracion_minutos AS duracion, c.nombre as category_name
+    //          FROM service s
+    //          LEFT JOIN category c ON s.category_id = c.id
+    //          WHERE s.business_id = ? AND s.activo = 1"
+    //     );
+    //     $stmt->execute([$this->id]);
+    //     return $stmt->fetchAll();
+    // }
 
     /**
      * Devuelve todos los productos activos de este comercio

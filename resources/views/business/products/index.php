@@ -31,9 +31,16 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             <?php foreach ($products as $p): ?>
 
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition-all group w-full max-w-sm mx-auto">
+                <div class="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col hover:shadow-md transition-all group w-full max-w-sm mx-auto <?= !$p->activo ? 'opacity-65 bg-gray-50/50 border-dashed border-gray-300 shadow-none hover:shadow-none' : 'border-gray-100' ?>">
 
-                    <div class="w-full h-24 bg-gray-50 border-b border-gray-100 overflow-hidden shrink-0">
+                    <div class="w-full h-24 bg-gray-50 border-b border-gray-100 overflow-hidden shrink-0 relative">
+
+                        <?php if (!$p->activo): ?>
+                            <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-gray-800 text-orange-500 shadow-sm uppercase tracking-wider z-10 flex items-center gap-1">
+                                <i class="fa-solid fa-eye-slash text-[9px]"></i> Oculto
+                            </span>
+                        <?php endif; ?>
+
                         <?php if (!empty($p->imagen)): ?>
                             <img src="<?= BASE_URL ?>/img/products/<?= $p->imagen ?>"
                                 alt="<?= htmlspecialchars($p->nombre) ?>"
@@ -49,12 +56,13 @@
                     <div class="p-6 flex flex-col flex-1 min-w-0">
 
                         <div class="flex justify-between items-start mb-3 gap-4 w-full">
-                            <h3 class="text-lg font-bold text-gray-900 line-clamp-1 flex-1 break-all" title="<?= htmlspecialchars($p->nombre) ?>">
+                            <h3 class="text-lg font-bold line-clamp-1 flex-1 break-all <?= !$p->activo ? 'text-gray-500' : 'text-gray-900' ?>" title="<?= htmlspecialchars($p->nombre) ?>">
                                 <?= htmlspecialchars($p->nombre) ?>
                             </h3>
                             <?php if (isset($p->stock)): ?>
                                 <span class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 <?= $p->stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' ?>">
-                                    Stock: <?= intval($p->stock) ?>
+                                    Stock: <?= $p->unidad_medida === 'kg' ? number_format($p->stock, 2, ',', '.') : intval($p->stock) ?>
+                                    <?= htmlspecialchars($p->unidad_medida) ?>
                                 </span>
                             <?php endif; ?>
                         </div>
@@ -63,8 +71,8 @@
                             <?= htmlspecialchars($p->descripcion) ?>
                         </p>
 
-                        <div class="text-2xl font-extrabold text-secondary mt-auto">
-                            <?= number_format($p->precio, 2, ',', '.') ?> €
+                        <div class="text-2xl font-extrabold mt-auto <?= !$p->activo ? 'text-gray-400' : 'text-secondary' ?>">
+                            <?= number_format($p->precio, 2, ',', '.') ?> € <span class="text-sm font-bold text-gray-600">/ <?= htmlspecialchars($p->unidad_medida) ?></span>
                         </div>
                     </div>
 
@@ -73,11 +81,11 @@
                             class="flex-1 text-center py-2 px-3 bg-white border border-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-100 transition-colors">
                             <i class="fa-solid fa-pencil mr-1"></i> Editar
                         </a>
-                        <form action="<?= BASE_URL ?>/business/dashboard/products/<?= $p->id ?>/delete" method="POST"
-                            onsubmit="return confirm('¿Eliminar este producto?');" class="m-0 flex">
+                        <form action="<?= BASE_URL ?>/business/dashboard/products/<?= $p->id ?>/delete" method="POST" class="m-0 flex form-eliminar">
                             <?= \App\Core\Session::csrfField() ?>
                             <button type="submit"
-                                class="py-2 px-3 bg-white border border-red-200 text-red-600 font-bold text-sm rounded-xl hover:bg-red-50 transition-colors">
+                                class="py-2 px-3 bg-white border border-red-200 text-red-600 font-bold text-sm rounded-xl hover:bg-red-50 transition-colors cursor-pointer"
+                                title="<?= !$p->activo ? 'Eliminar permanentemente' : 'Eliminar' ?>">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                         </form>
@@ -88,4 +96,9 @@
         </div>
     <?php endif; ?>
 </div>
+
+<script>
+    window.BASE_URL = "<?= BASE_URL ?>";
+</script>
+<script src="<?= BASE_URL ?>/js/main.js"></script>
 <?php require_once ROOT_DIR . '/resources/views/layout/footer_dashboard.php'; ?>

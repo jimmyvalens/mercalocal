@@ -11,9 +11,9 @@ if (!empty($_SESSION['cart'])) {
     }
 }
 
-// 2. DATOS DEL CLIENTE DINÁMICOS
-$direccionEnvio = 'No especificada en el perfil';
-$telefonoContacto = 'No especificado';
+// // 2. DATOS DEL CLIENTE DINÁMICOS
+// $direccionEnvio = 'No especificada en el perfil';
+// $telefonoContacto = 'No especificado';
 
 if (Session::get('user_id')) {
     $currentUser = User::findById(Session::get('user_id'));

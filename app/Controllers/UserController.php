@@ -191,10 +191,8 @@ class UserController
     }
 
     /**
-     * Muestra el historial de compras y reservas del usuario (GET /orders).
-     * Devuelve dos conjuntos de datos a la vista:
-     *   · $orders       — pedidos de productos con sus líneas
-     *   · $reservations — reservas de servicios con detalles de comercio y servicio
+     * Muestra el historial de compras del usuario (GET /orders).
+     * Devuelve los datos a la vista adaptados al flujo de productos físicos del MVP.
      */
     public function orders()
     {
@@ -208,7 +206,7 @@ class UserController
         $userId = Session::get('user_id');
         $db = Database::getInstance()->getConnection();
 
-        // ── Obtener pedidos del usuario ordenados por fecha descendente ──
+        // ── Obtener pedidos del usuario ordenados por fecha descendente (Tus tablas correctas) ──
         $stmt = $db->prepare(
             'SELECT p.id, p.total, p.estado, p.created_at FROM purchase p
              WHERE p.user_id = ? ORDER BY p.created_at DESC'
@@ -229,21 +227,14 @@ class UserController
         }
         unset($p); // Romper la referencia para evitar efectos secundarios
 
-        // ── Obtener reservas del usuario con detalles del comercio y servicio ──
-        $stmtR = $db->prepare(
-            "SELECT r.id, r.fecha, r.hora_inicio, r.hora_fin, r.estado, r.created_at,
-                    b.nombre as business_name, s.nombre as service_name, ri.precio
-             FROM reservation r
-             JOIN business b ON b.id = r.business_id
-             LEFT JOIN reservation_item ri ON ri.reservation_id = r.id
-             LEFT JOIN service s ON s.id = ri.service_id
-             WHERE r.user_id = ? ORDER BY r.fecha DESC, r.hora_inicio DESC"
-        );
-        $stmtR->execute([$userId]);
-        $reservations = $stmtR->fetchAll(PDO::FETCH_ASSOC);
+        // ── Adaptación MVP ──
+        // Como eliminamos los servicios, forzamos $reservations como array vacío 
+        // para que la vista no lance un "Undefined variable" si hereda código antiguo.
+        $reservations = [];
 
         // $orders es un alias de $purchases para mayor claridad en la vista
         $orders = $purchases;
+
         require_once ROOT_DIR . '/resources/views/user/orders.php';
     }
 

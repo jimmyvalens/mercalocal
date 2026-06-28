@@ -22,7 +22,9 @@ class Product
     public $imagen; // Nombre del archivo de imagen (almacenado en public/img/)
     public $activo; // 1 = visible en el catálogo, 0 = oculto
     public $created_at;
-    public $category_name; // Campo calculado mediante JOIN con la tabla category
+    public $category_name;
+    public $updated_at;
+    public $unidad_medida; // Campo calculado mediante JOIN con la tabla category
 
     /**
      * Busca un producto por su ID.
@@ -62,7 +64,8 @@ class Product
     public static function create(array $data): int
     {
         $db = Database::getInstance()->getConnection();
-        $sql = "INSERT INTO product (business_id, category_id, nombre, descripcion, precio, stock, imagen, activo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+        // Añadimos 'unidad_medida' en los campos y un '?' más en los VALUES
+        $sql = "INSERT INTO product (business_id, category_id, nombre, descripcion, precio, unidad_medida, stock, imagen, activo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
         $stmt = $db->prepare($sql);
         $stmt->execute([
             $data['business_id'],
@@ -70,6 +73,7 @@ class Product
             $data['nombre'],
             $data['descripcion'] ?? null,
             $data['precio'] ?? 0,
+            $data['unidad_medida'] ?? 'ud', // 🔥 NUEVO: Mapeado en la posición correcta
             $data['stock'] ?? 0,
             $data['imagen'] ?? null,
             isset($data['activo']) ? (int)$data['activo'] : 1,
@@ -83,20 +87,21 @@ class Product
     public static function update(int $id, array $data): bool
     {
         $db = Database::getInstance()->getConnection();
-        $sql = "UPDATE product SET category_id = ?, nombre = ?, descripcion = ?, precio = ?, stock = ?, imagen = ?, activo = ? WHERE id = ?";
+        // Añadimos 'unidad_medida = ?' en el SET
+        $sql = "UPDATE product SET category_id = ?, nombre = ?, descripcion = ?, precio = ?, unidad_medida = ?, stock = ?, imagen = ?, activo = ? WHERE id = ?";
         $stmt = $db->prepare($sql);
         return $stmt->execute([
             $data['category_id'] ?? null,
             $data['nombre'],
             $data['descripcion'] ?? null,
             $data['precio'] ?? 0,
+            $data['unidad_medida'] ?? 'ud', // 🔥 NUEVO: Mapeado en la posición correcta
             $data['stock'] ?? 0,
             $data['imagen'] ?? null,
             isset($data['activo']) ? (int)$data['activo'] : 1,
-            $id,
+            $id, // El ID siempre al final por el WHERE id = ?
         ]);
     }
-
     /**
      * Elimina un producto por id
      */

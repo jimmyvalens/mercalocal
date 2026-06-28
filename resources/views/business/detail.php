@@ -44,38 +44,42 @@
     </div>
 </div>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 gap-x-12">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 gap-x-12">
 
-    <div class="flex flex-row items-center justify-between w-full mt-12 mb-12 bg-white border border-gray-100 shadow-sm rounded-2xl p-0">
+    <div class="flex flex-col md:flex-row items-center justify-between w-full mt-12 mb-12 bg-white border border-gray-100 shadow-sm rounded-2xl p-2 md:p-2">
 
-        <div class="flex items-center gap-4 ml-6 my-6 border-r border-gray-100 pr-6">
-            <div class="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-primary shrink-0">
-                <i class="fa-solid fa-phone text-lg"></i>
-            </div>
-            <div>
-                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Teléfono</p>
-                <a href="tel:<?= htmlspecialchars($business->telefono) ?>" class="text-sm font-bold text-gray-800"><?= htmlspecialchars($business->telefono) ?></a>
-            </div>
-        </div>
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full p-4">
 
-        <div class="flex items-center gap-4 my-6 border-r border-gray-100 pr-6">
-            <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                <i class="fa-solid fa-envelope text-lg"></i>
+            <div class="flex items-center gap-4 py-2 pr-6">
+                <div class="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-primary shrink-0">
+                    <i class="fa-solid fa-phone text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Teléfono</p>
+                    <a href="tel:<?= htmlspecialchars($business->telefono) ?>" class="text-sm font-bold text-gray-800"><?= htmlspecialchars($business->telefono) ?></a>
+                </div>
             </div>
-            <div>
-                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Correo</p>
-                <a href="mailto:<?= htmlspecialchars($business->email) ?>" class="text-sm font-bold text-gray-800"><?= htmlspecialchars($business->email) ?></a>
-            </div>
-        </div>
 
-        <div class="flex items-center gap-4 mr-6 my-6">
-            <div class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
-                <i class="fa-solid fa-globe text-lg"></i>
+            <div class="flex items-center gap-4 py-2 pr-6">
+                <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                    <i class="fa-solid fa-envelope text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Correo</p>
+                    <a href="mailto:<?= htmlspecialchars($business->email) ?>" class="text-sm font-bold text-gray-800"><?= htmlspecialchars($business->email) ?></a>
+                </div>
             </div>
-            <div>
-                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Sitio Web</p>
-                <a href="<?= htmlspecialchars($business->web) ?>" class="text-sm font-bold text-primary"><?= htmlspecialchars(preg_replace('/^https?:\/\/(www\.)?/', '', $business->web)) ?></a>
+
+            <div class="flex items-center gap-4 py-2">
+                <div class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
+                    <i class="fa-solid fa-globe text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Sitio Web</p>
+                    <a href="<?= htmlspecialchars($business->web) ?>" class="text-sm font-bold text-primary"><?= htmlspecialchars(preg_replace('/^https?:\/\/(www\.)?/', '', $business->web)) ?></a>
+                </div>
             </div>
+
         </div>
 
     </div>
@@ -104,6 +108,12 @@
             $horariosAgrupados = [];
             foreach ($schedules as $s) {
                 $diaNum = (int)($s['dia_semana'] ?? 0);
+
+                // 💡 Parche temporal: Si llega un 0 de las pruebas de antes, lo tratamos como Domingo (7)
+                if ($diaNum === 0) {
+                    $diaNum = 7;
+                }
+
                 $horariosAgrupados[$diaNum][] = $s;
             }
             ksort($horariosAgrupados);
@@ -179,9 +189,13 @@
                                 <span class="text-2xl font-extrabold text-secondary leading-none">
                                     <?= number_format($p['precio'], 2) ?> €
                                 </span>
-                                <span class="text-xs text-gray-400 font-medium bg-gray-50 px-2 py-1 rounded-md">
-                                    <?= $p['stock'] > 0 ? 'Stock: ' . $p['stock'] . ' uds' : 'Agotado' ?>
-                                </span>
+                                <?php if ($p['stock'] > 10): ?>
+                                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">Disponible</span>
+                                <?php elseif ($p['stock'] > 0): ?>
+                                    <span class="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-medium">Últimas unidades</span>
+                                <?php else: ?>
+                                    <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full font-medium">Agotado temporalmente</span>
+                                <?php endif; ?>
                             </div>
 
                             <div class="pt-3 border-t border-gray-50">
@@ -193,7 +207,7 @@
                                         class="block w-16 rounded-xl border-gray-200 py-2 text-center text-gray-900 border text-sm focus:border-primary focus:ring-primary focus:outline-none">
 
                                     <button type="submit"
-                                        class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-xl text-sm font-bold text-white bg-primary hover:bg-orange-600 transition-colors shadow-sm gap-2">
+                                        class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-xl text-sm font-bold text-white bg-primary hover:bg-orange-600 transition-colors shadow-sm gap-2 cursor-pointer">
                                         <i class="fa-solid fa-cart-shopping text-xs"></i> Añadir
                                     </button>
                                 </form>
@@ -207,5 +221,10 @@
     </section>
 
 </div>
+
+<script>
+    window.BASE_URL = "<?= BASE_URL ?>";
+</script>
+<script src="<?= BASE_URL ?>/js/main.js"></script>
 
 <?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>

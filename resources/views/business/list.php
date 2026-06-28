@@ -20,7 +20,7 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                     <?php endforeach; ?>
                 </select>
             </div>
-            <button type="submit" class="w-full md:w-auto px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-orange-600 transition-colors shadow">Buscar</button>
+            <button type="submit" class="w-full md:w-auto px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-orange-600 transition-colors shadow cursor-pointer">Buscar</button>
         </form>
     </div>
 
@@ -34,75 +34,83 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
             <h3 class="text-xl font-medium text-gray-700">No se encontraron comercios</h3>
         </div>
     <?php else: ?>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
             <?php foreach ($businesses as $b): ?>
-                <a href="/business/<?= $b->id ?>" class="group bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all flex flex-col h-full">
-                    <div class="h-48 bg-gray-200 relative w-full overflow-hidden">
-                        <div class="absolute inset-0 bg-gradient-to-br from-green-100 to-orange-100 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-                            <i class="fa-solid fa-store text-5xl text-gray-400 opacity-50"></i>
+                <a href="/business/<?= $b->id ?>" class="group bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all flex flex-col h-full w-full">
+
+                    <div class="h-48 bg-gray-200 relative w-full overflow-hidden flex-shrink-0">
+                        <?php if (!empty($b->logo_path)): ?>
+                            <img src="<?= htmlspecialchars($b->logo_path) ?>" alt="<?= htmlspecialchars($b->nombre) ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <?php endif; ?>
+
+                        <div style="background-color:#1e293b" class="absolute inset-0 <?= !empty($b->logo_path) ? 'hidden' : 'flex' ?> items-center justify-center overflow-hidden group-hover:scale-105 transition-transform duration-500">
+                            <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 20px 20px, #ff5722 2.5px, transparent 0); background-size: 30px 30px;"></div>
+                            <i class="fa-solid fa-shop text-6xl text-primary opacity-80 relative z-10"></i>
                         </div>
                     </div>
-                    <div class="p-6 flex-grow flex flex-col">
-                        <h3 class="text-xl font-bold text-gray-900 group-hover:text-primary transition-colors mb-2"><?= htmlspecialchars($b->nombre) ?></h3>
-                        <?php $rating = $b->getRating(); ?>
-                        <?php if ($rating['total'] > 0): ?>
-                            <div class="flex items-center mb-2">
-                                <div class="flex text-yellow-400">
-                                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                                        <i class="fa-solid fa-star <?= $i <= round($rating['average']) ? 'text-yellow-400' : 'text-gray-300' ?>"></i>
-                                    <?php endfor; ?>
-                                </div>
-                                <span class="ml-2 text-sm text-gray-600">(<?= number_format($rating['average'], 1) ?> - <?= $rating['total'] ?> reseñas)</span>
-                            </div>
-                        <?php endif; ?>
-                        <p class="text-sm text-gray-500 line-clamp-2 mb-4 flex-grow"><?= htmlspecialchars($b->descripcion) ?></p>
+
+                    <div class="p-6 flex-grow flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 group-hover:text-primary transition-colors mb-2">
+                                <?= htmlspecialchars($b->nombre) ?>
+                            </h3>
+
+                            <p class="text-sm text-gray-500 line-clamp-2 mb-4">
+                                <?= htmlspecialchars($b->descripcion) ?>
+                            </p>
+                        </div>
+
                         <div class="mt-auto space-y-2">
                             <?php if (!empty($b->categorias)): ?>
-                                <div class="flex items-center text-xs font-bold text-primary bg-orange-50 inline-block px-2 py-1 rounded">
-                                    <i class="fa-solid fa-tag mr-1"></i> <?= htmlspecialchars($b->categorias) ?>
+                                <div class="inline-flex items-center text-xs font-bold text-primary bg-orange-50 px-2 py-1 rounded max-w-full break-words">
+                                    <i class="fa-solid fa-tag mr-1 flex-shrink-0"></i>
+                                    <span class="truncate"><?= htmlspecialchars($b->categorias) ?></span>
                                 </div>
                             <?php endif; ?>
-                            <div class="flex items-center text-sm text-gray-600"><i class="fa-solid fa-phone w-5 text-gray-400 mr-2"></i><?= htmlspecialchars($b->telefono) ?></div>
+
+                            <div class="flex items-center text-sm text-gray-600">
+                                <i class="fa-solid fa-phone w-5 text-gray-400 mr-2 flex-shrink-0"></i><?= htmlspecialchars($b->telefono) ?>
+                            </div>
                         </div>
                     </div>
-                </a>
-            <?php endforeach; ?>
+                </a> <?php endforeach; ?>
         </div>
+</div>
 
-        <?php if ($totalPages > 1): ?>
-            <div class="mt-8 flex justify-center">
-                <nav class="flex items-center space-x-1">
-                    <?php
-                    $queryParams = $_GET;
-                    unset($queryParams['page']);
-                    $baseUrl = '/businesses';
-                    if (!empty($queryParams)) {
-                        $baseUrl .= '?' . http_build_query($queryParams) . '&';
-                    } else {
-                        $baseUrl .= '?';
-                    }
-                    ?>
+<?php if ($totalPages > 1): ?>
+    <div class="mt-8 flex justify-center">
+        <nav class="flex items-center space-x-1">
+            <?php
+            $queryParams = $_GET;
+            unset($queryParams['page']);
+            $baseUrl = '/businesses';
+            if (!empty($queryParams)) {
+                $baseUrl .= '?' . http_build_query($queryParams) . '&';
+            } else {
+                $baseUrl .= '?';
+            }
+            ?>
 
-                    <?php if ($page > 1): ?>
-                        <a href="<?= $baseUrl ?>page=<?= $page - 1 ?>" class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </a>
-                    <?php endif; ?>
+            <?php if ($page > 1): ?>
+                <a href="<?= $baseUrl ?>page=<?= $page - 1 ?>" class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </a>
+            <?php endif; ?>
 
-                    <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                        <a href="<?= $baseUrl ?>page=<?= $i ?>" class="px-3 py-2 text-sm font-medium border <?= $i == $page ? 'text-primary bg-primary bg-opacity-10 border-primary' : 'text-gray-500 bg-white border-gray-300 hover:bg-gray-50' ?>">
-                            <?= $i ?>
-                        </a>
-                    <?php endfor; ?>
+            <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
+                <a href="<?= $baseUrl ?>page=<?= $i ?>" class="px-3 py-2 text-sm font-medium border <?= $i == $page ? 'text-primary bg-primary bg-opacity-10 border-primary' : 'text-gray-500 bg-white border-gray-300 hover:bg-gray-50' ?>">
+                    <?= $i ?>
+                </a>
+            <?php endfor; ?>
 
-                    <?php if ($page < $totalPages): ?>
-                        <a href="<?= $baseUrl ?>page=<?= $page + 1 ?>" class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50">
-                            <i class="fa-solid fa-chevron-right"></i>
-                        </a>
-                    <?php endif; ?>
-                </nav>
-            </div>
-        <?php endif; ?>
-    <?php endif; ?>
+            <?php if ($page < $totalPages): ?>
+                <a href="<?= $baseUrl ?>page=<?= $page + 1 ?>" class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+            <?php endif; ?>
+        </nav>
+    </div>
+<?php endif; ?>
+<?php endif; ?>
 </div>
 <?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>

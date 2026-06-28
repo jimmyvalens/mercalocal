@@ -26,7 +26,7 @@ class BusinessController
         $search = $_GET['q'] ?? '';
         $categoryId = $_GET['categoria'] ?? null;
         $page = (int)($_GET['page'] ?? 1);
-        $perPage = 10; // Comercios por página
+        $perPage = 9; // Comercios por página
         $offset = ($page - 1) * $perPage;
 
         try {
@@ -36,7 +36,7 @@ class BusinessController
             $totalPages = ceil($totalBusinesses / $perPage);
 
             // Obtener todas las categorías para el selector del filtro
-            $categories = Category::getAll();
+            $categories = Category::getParents();
 
             $viewPath = ROOT_DIR . '/resources/views/business/list.php';
             if (!file_exists($viewPath)) {
