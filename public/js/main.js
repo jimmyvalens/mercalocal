@@ -14,42 +14,65 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Delegación de eventos: escuchamos el click en el body, 
-    // pero filtramos por el selector de los formularios de eliminación
+    // Delegación de eventos: escuchamos el click en el body
     document.body.addEventListener('submit', (e) => {
-        // Identificamos cuál de los dos formularios es
-        const isEliminar = e.target.matches('.form-eliminar');
-        const isEliminarDetalle = e.target.matches('.form-eliminar-detalle');
+        const form = e.target;
+
+        // Identificamos si es un formulario de eliminación
+        const isEliminar = form.matches('.form-eliminar');
+        const isEliminarDetalle = form.matches('.form-eliminar-detalle');
 
         if (isEliminar || isEliminarDetalle) {
             e.preventDefault();
-            const form = e.target;
 
-            // Configuramos los textos dinámicamente
-            const config = {
-                title: isEliminarDetalle ? '¿Confirmas la eliminación del comercio?' : '¿Estás seguro de eliminar el comercio?',
-                text: isEliminarDetalle ? 'Esta acción dará de baja el comercio y todo su catálogo asociado.' : 'Esta acción no se puede deshacer'
-            };
+            // 🌟 TEXTOS DINÁMICOS: Leemos de los atributos data- del HTML, o usamos los de por defecto
+            const title = form.getAttribute('data-titulo') ||
+                (isEliminarDetalle ? '¿Confirmas la eliminación del comercio?' : '¿Estás seguro de eliminar el comercio?');
+
+            const text = form.getAttribute('data-texto') ||
+                (isEliminarDetalle ? 'Esta acción dará de baja el comercio y todo su catálogo asociado.' : 'Esta acción no se puede deshacer');
 
             Swal.fire({
-                title: config.title,
-                text: config.text,
+                title: title,
+                text: text,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#3b82f6',
+                confirmButtonColor: '#ef4444', // Red 500 de Tailwind
+                cancelButtonColor: '#3b82f6',  // Blue 500 de Tailwind
                 confirmButtonText: 'Sí, eliminar',
                 cancelButtonText: 'Cancelar',
                 background: '#ffffff',
                 customClass: { popup: 'rounded-2xl border border-gray-100 shadow-xl' }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    form.submit();
+                    form.submit(); // Envía el formulario y recarga la página
                 }
             });
         }
     });
 
+    // ==========================================
+    // 2. CONTROL DE UNIDAD DE MEDIDA Y STOCK
+    // ==========================================
+    const selectUnidad = document.getElementById('unidad_medida');
+    const inputStock = document.getElementById('stock_input');
+
+    if (selectUnidad && inputStock) {
+        selectUnidad.addEventListener('change', function () {
+            if (this.value === 'kg') {
+                inputStock.setAttribute('step', '0.01');
+                inputStock.setAttribute('placeholder', 'Ej: 15.50');
+            } else {
+                inputStock.setAttribute('step', '1');
+                inputStock.setAttribute('placeholder', 'Ej: 10');
+
+                // Si el usuario cambia a unidades teniendo decimales, redondeamos
+                if (inputStock.value) {
+                    inputStock.value = Math.round(parseFloat(inputStock.value));
+                }
+            }
+        });
+    }
 
 
     // =========================================================================
@@ -85,6 +108,47 @@ document.addEventListener('DOMContentLoaded', function () {
     // Al estar protegidos dentro de la función con 'if (input)', no romperán si no existen
     gestionarArchivo(inputHero, prevHero, placeholderHero, true);
     gestionarArchivo(inputLogo, prevLogo, placeholderLogo, false);
+
+    // =========================================================================
+    // 2. Lógica de Previsualización para el Dropzone de Productos
+    // =========================================================================
+    const inputProducto = document.getElementById('foto-producto');
+
+    if (inputProducto) {
+        inputProducto.addEventListener('change', function () {
+            const box = document.getElementById('nombre-archivo-elegido');
+            const preview = document.getElementById('producto-preview');
+            const content = document.getElementById('dropzone-content');
+            const avisoExisting = document.getElementById('aviso-imagen-existente');
+
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+
+                // Controlamos la existencia de los elementos por seguridad antes de aplicar clases
+                if (box) {
+                    box.textContent = "✓ Cambiado: " + file.name;
+                    box.classList.remove('hidden');
+                }
+                if (avisoExisting) {
+                    avisoExisting.classList.add('hidden');
+                }
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    if (preview) {
+                        preview.src = e.target.result;
+                        preview.classList.remove('hidden');
+                    }
+                    if (content) {
+                        content.classList.add('opacity-0');
+                    }
+                }
+                reader.readAsDataURL(file);
+            } else {
+                if (box) box.classList.add('hidden');
+            }
+        });
+    }
 
 
     // =========================================================================

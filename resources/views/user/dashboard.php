@@ -11,7 +11,7 @@
                         <i class="fa-solid fa-user"></i>
                     </div>
                     <div class="min-w-0">
-                        <h3 class="font-bold text-gray-900 leading-tight truncate"><?= htmlspecialchars($user->nombre) ?></h3>
+                        <h3 class="font-bold text-gray-900 leading-tight truncate"><?= htmlspecialchars($user->nombre ?? (\App\Core\Session::get('user_name') ?? 'Usuario')) ?></h3>
                         <p class="text-xs text-gray-500 uppercase tracking-wider font-bold">Mi Área</p>
                     </div>
                 </div>
@@ -25,10 +25,8 @@
                     <a href="<?= BASE_URL ?>/orders" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-primary font-medium rounded-xl transition-colors">
                         <i class="fa-solid fa-box-open w-5"></i> Mis Pedidos
                     </a>
-                    <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-primary font-medium rounded-xl transition-colors" onclick="alert('Funcionalidad de Favoritos en desarrollo')">
-                        <i class="fa-solid fa-heart w-5"></i> Mis Favoritos
-                    </a>
-                    <div class="pt-4 mt-4 border-t border-gray-100">
+
+                    <div class="pt-2 mt-2 border-t border-gray-100">
                         <a href="<?= BASE_URL ?>/logout" class="flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 font-bold rounded-xl transition-colors">
                             <i class="fa-solid fa-arrow-right-from-bracket w-5"></i> Cerrar Sesión
                         </a>
@@ -39,7 +37,7 @@
 
         <!-- Content -->
         <div class="flex-grow min-w-0">
-            <h1 class="text-4xl font-bold text-secondary mb-8">¡Hola, <?= htmlspecialchars($user->nombre) ?>! <span class="text-3xl">👋</span></h1>
+            <h1 class="text-4xl font-bold text-secondary mb-8">¡Hola, <?= htmlspecialchars($user->nombre ?? (\App\Core\Session::get('user_name') ?? 'Usuario')) ?>! <span class="text-3xl">👋</span></h1>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-10">
                 <a href="<?= BASE_URL ?>/orders" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 flex flex-col justify-center gap-6 hover:shadow-xl hover:-translate-y-1 transition-all group">
@@ -48,7 +46,7 @@
                     </div>
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900 mb-2">Mis Pedidos</h2>
-                        <p class="text-gray-500 font-medium leading-relaxed">Revisa el estado de tus compras e historial de pedidos locales.</p>
+                        <p class="text-gray-500 font-medium leading-relaxed">Revisa el estado de tus pedidos y el historial de tus compras.</p>
                     </div>
                     <div class="text-primary font-bold flex items-center gap-2 group-hover:gap-4 transition-all">
                         Gestionar compras <i class="fa-solid fa-arrow-right"></i>

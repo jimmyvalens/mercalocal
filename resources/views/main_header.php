@@ -65,6 +65,8 @@
                                 <a href="<?= BASE_URL ?>/business/dashboard" class="text-gray-600 hover:text-primary font-medium text-sm">Mi Comercio</a>
                             <?php elseif ($userRole === 'ADMIN'): ?>
                                 <a href="<?= BASE_URL ?>/admin/dashboard" class="text-gray-600 hover:text-primary font-medium text-sm">Admin</a>
+                            <?php elseif ($userRole === 'USER'): ?>
+                                <a href="<?= BASE_URL ?>/user/dashboard" class="text-gray-600 hover:text-primary font-medium text-sm">Mi panel</a>
                             <?php endif; ?>
 
                             <div class="flex items-center gap-2 pl-4 border-l border-gray-200">

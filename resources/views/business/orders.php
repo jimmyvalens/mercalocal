@@ -10,10 +10,9 @@ function estadoBadge(?string $estado): string
     $e = str_replace(['á', 'é', 'í', 'ó', 'ú'], ['a', 'e', 'i', 'o', 'u'], $e);
 
     if (str_contains($e, 'pend')) return 'bg-amber-50 text-amber-800 border-amber-200';
-    if (str_contains($e, 'pagad')) return 'bg-emerald-50 text-emerald-800 border-emerald-200';
     if (str_contains($e, 'prepar')) return 'bg-blue-50 text-blue-800 border-blue-200';
-    if (str_contains($e, 'enviad')) return 'bg-indigo-50 text-indigo-800 border-indigo-200';
-    if (str_contains($e, 'entreg')) return 'bg-teal-50 text-teal-800 border-teal-200';
+    if (str_contains($e, 'list')) return 'bg-indigo-50 text-indigo-800 border-indigo-200';
+    if (str_contains($e, 'complet')) return 'bg-teal-50 text-teal-800 border-teal-200';
     if (str_contains($e, 'cancel')) return 'bg-red-50 text-red-800 border-red-200';
 
     return 'bg-gray-50 text-gray-700 border-gray-200';
@@ -52,17 +51,16 @@ function estadoBadge(?string $estado): string
                     <select name="status" id="status"
                         class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all text-gray-700">
                         <option value="">Todos los estados</option>
-                        <option value="pendiente" <?= ($_GET['status'] ?? '') === 'pendiente' ? 'selected' : '' ?>>Pendiente</option>
-                        <option value="pagado" <?= ($_GET['status'] ?? '') === 'pagado' ? 'selected' : '' ?>>Pagado</option>
-                        <option value="en-preparacion" <?= ($_GET['status'] ?? '') === 'en-preparacion' ? 'selected' : '' ?>>En Preparación</option>
-                        <option value="enviado" <?= ($_GET['status'] ?? '') === 'enviado' ? 'selected' : '' ?>>Enviado</option>
-                        <option value="entregado" <?= ($_GET['status'] ?? '') === 'entregado' ? 'selected' : '' ?>>Entregado</option>
-                        <option value="cancelado" <?= ($_GET['status'] ?? '') === 'cancelado' ? 'selected' : '' ?>>Cancelado</option>
+                        <option value="PENDIENTE" <?= ['estado'] === 'PENDIENTE' ? 'selected' : '' ?>>Pendiente</option>
+                        <option value="PREPARANDO" <?= ['estado'] === 'PREPARANDO' ? 'selected' : '' ?>>Preparando</option>
+                        <option value="LISTO" <?= ['estado'] === 'LISTO' ? 'selected' : '' ?>>Listo</option>
+                        <option value="COMPLETADO" <?= ['estado'] === 'COMPLETADO' ? 'selected' : '' ?>>Completado</option>
+                        <option value="CANCELADO" <?= ['estado'] === 'CANCELADO' ? 'selected' : '' ?>>Cancelado</option>
                     </select>
                 </div>
 
                 <div class="flex gap-2">
-                    <button type="submit" class="flex-grow bg-primary hover:bg-orange-600 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2">
+                    <button type="submit" class="flex-grow bg-primary hover:bg-orange-600 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer">
                         <i class="fa-solid fa-filter"></i> Filtrar
                     </button>
 
@@ -113,10 +111,9 @@ function estadoBadge(?string $estado): string
                                     <select name="nuevo_estado" onchange="this.form.submit()"
                                         class="text-xs font-bold px-3 py-1.5 rounded-lg border <?= estadoBadge($o['estado']) ?> uppercase tracking-wider shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-center">
                                         <option value="PENDIENTE" <?= $o['estado'] === 'PENDIENTE' ? 'selected' : '' ?>>Pendiente</option>
-                                        <option value="PAGADO" <?= $o['estado'] === 'PAGADO' ? 'selected' : '' ?>>Pagado</option>
-                                        <option value="EN PREPARACION" <?= $o['estado'] === 'EN PREPARACION' ? 'selected' : '' ?>>En Preparación</option>
-                                        <option value="ENVIADO" <?= $o['estado'] === 'ENVIADO' ? 'selected' : '' ?>>Enviado</option>
-                                        <option value="ENTREGADO" <?= $o['estado'] === 'ENTREGADO' ? 'selected' : '' ?>>Entregado</option>
+                                        <option value="PREPARANDO" <?= $o['estado'] === 'PREPARANDO' ? 'selected' : '' ?>>Preparando</option>
+                                        <option value="LISTO" <?= $o['estado'] === 'LISTO' ? 'selected' : '' ?>>Listo</option>
+                                        <option value="COMPLETADO" <?= $o['estado'] === 'COMPLETADO' ? 'selected' : '' ?>>Completado</option>
                                         <option value="CANCELADO" <?= $o['estado'] === 'CANCELADO' ? 'selected' : '' ?>>Cancelado</option>
                                     </select>
                                 </form>

@@ -15,19 +15,20 @@ $dashboardPath = match ($role) {
 
 require_once ROOT_DIR . '/resources/views/main_header.php';
 ?>
+
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
-    <div class="flex items-center gap-4 mb-8 border-b border-gray-100 pb-4">
-        <a href="<?= BASE_URL ?>/<?= $dashboardPath ?>" class="text-gray-500 hover:text-primary transition-colors flex items-center gap-2">
+
+    <div class="flex items-center justify-between gap-4 mb-8 max-w-3xl mx-auto">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-user-circle text-primary text-2xl sm:text-3xl"></i>
+            <h2 class="text-2xl sm:text-3xl font-bold text-secondary m-0">Mi Perfil</h2>
+        </div>
+        <a href="<?= BASE_URL ?>/user/dashboard" class="text-gray-500 hover:text-primary transition-colors flex items-center gap-2">
             <i class="fa-solid fa-arrow-left"></i> Volver al panel
         </a>
-        <div class="flex-1 min-w-0">
-            <h2 class="text-2xl font-bold leading-7 text-secondary sm:text-3xl sm:truncate flex items-center m-0">
-                <i class="fa-solid fa-user-circle text-primary mr-3"></i> Mi Perfil
-            </h2>
-        </div>
     </div>
 
-    <div class="bg-white shadow-sm overflow-hidden sm:rounded-2xl border border-gray-100 p-8 max-w-3xl">
+    <div class="bg-white shadow-sm overflow-hidden sm:rounded-2xl border border-gray-100 p-8 max-w-3xl mx-auto">
         <form class="space-y-6 flex flex-col items-center sm:items-stretch" action="<?= BASE_URL ?>/user/profile/update" method="POST" enctype="multipart/form-data">
             <?= \App\Core\Session::csrfField() ?>
             <div class="flex flex-col sm:flex-row items-center gap-6 mb-8 justify-center sm:justify-start">
@@ -105,14 +106,14 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
     document.addEventListener('DOMContentLoaded', function() {
         const fileInput = document.getElementById('imagen-input');
         const container = document.getElementById('avatar-container');
-        
+
         fileInput.addEventListener('change', function(e) {
             if (this.files && this.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     let img = document.getElementById('avatar-img');
                     let placeholder = document.getElementById('avatar-placeholder');
-                    
+
                     if (placeholder && !img) {
                         img = document.createElement('img');
                         img.id = 'avatar-img';
@@ -121,7 +122,7 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                         container.insertBefore(img, placeholder);
                         placeholder.style.display = 'none';
                     }
-                    
+
                     if (img) {
                         img.src = e.target.result;
                     }

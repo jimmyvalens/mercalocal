@@ -37,6 +37,30 @@ class Schedule
         return (int)$db->lastInsertId();
     }
 
+    // En App\Models\Schedule.php
+
+    public static function exists($business_id, $dia_semana, $hora_apertura, $hora_cierre)
+    {
+        $db = Database::getInstance()->getConnection();
+
+        $sql = "SELECT COUNT(*) FROM schedule 
+            WHERE business_id = :business_id 
+              AND dia_semana = :dia_semana 
+              AND hora_apertura = :hora_apertura 
+              AND hora_cierre = :hora_cierre";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            ':business_id'   => $business_id,
+            ':dia_semana'    => $dia_semana,
+            ':hora_apertura' => $hora_apertura,
+            ':hora_cierre'   => $hora_cierre
+        ]);
+
+        // Si el conteo es mayor que 0, es que ya existe
+        return $stmt->fetchColumn() > 0;
+    }
+
     public static function delete(int $id): bool
     {
         $db = Database::getInstance()->getConnection();

@@ -31,6 +31,16 @@ class Category
     }
 
     /**
+     * Obtiene únicamente las categorías padre como objetos.
+     */
+    public static function getParents(): array
+    {
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->query("SELECT * FROM category WHERE parent_id IS NULL OR parent_id = '' ORDER BY nombre ASC");
+        return $stmt->fetchAll(\PDO::FETCH_OBJ);
+    }
+
+    /**
      * Obtiene las subcategorías filtradas por la categoría del comercio y el tipo (producto/servicio)
      * * @param int $parentId ID de la categoría del comercio (ej: 1 para Alimentación)
      * @param string $type Tipo de subcategoría ('producto' o 'servicio')

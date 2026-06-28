@@ -2,8 +2,9 @@
 
 <?php
 // Helper para clases del badge de estado
-function estadoBadgeClass(string $estado): string {
-    return match(strtolower($estado)) {
+function estadoBadgeClass(string $estado): string
+{
+    return match (strtolower($estado)) {
         'pendiente'   => 'bg-yellow-50 text-yellow-700 border-yellow-200',
         'completado'  => 'bg-green-50 text-green-700 border-green-200',
         'cancelado'   => 'bg-red-50 text-red-700 border-red-200',
@@ -15,11 +16,14 @@ function estadoBadgeClass(string $estado): string {
 
 <main class="flex-grow flex flex-col bg-gray-50">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
-        <div class="flex items-center gap-4 mb-8">
+        <div class="flex items-center justify-between gap-4 mb-8 max-w-3xl mx-auto">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-box text-primary text-2xl sm:text-3xl"></i>
+                <h2 class="text-2xl sm:text-3xl font-bold text-secondary m-0">Mis Pedidos</h2>
+            </div>
             <a href="<?= BASE_URL ?>/user/dashboard" class="text-gray-500 hover:text-primary transition-colors flex items-center gap-2">
                 <i class="fa-solid fa-arrow-left"></i> Volver al panel
             </a>
-            <h1 class="text-2xl sm:text-3xl font-bold text-secondary m-0">Mis Pedidos</h1>
         </div>
 
         <div class="bg-white shadow-sm border border-gray-100 rounded-2xl overflow-hidden max-w-3xl mx-auto">
@@ -57,7 +61,7 @@ function estadoBadgeClass(string $estado): string {
                                     </span>
                                 </div>
                             </div>
-                            
+
                             <!-- Detalles del pedido -->
                             <details class="mt-4 group border border-gray-100 rounded-xl bg-white overflow-hidden">
                                 <summary class="cursor-pointer text-sm font-semibold text-gray-600 bg-gray-50 px-4 py-3 hover:bg-gray-100 transition-colors flex justify-between items-center list-none">
@@ -78,7 +82,7 @@ function estadoBadgeClass(string $estado): string {
                                     <?php else: ?>
                                         <p class="text-sm text-gray-500">No hay detalles disponibles.</p>
                                     <?php endif; ?>
-                                    
+
                                     <div class="mt-4 pt-3 border-t border-gray-100 text-sm flex flex-col gap-1 text-gray-600">
                                         <div class="flex justify-between">
                                             <span>Método de entrega:</span>

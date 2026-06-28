@@ -39,7 +39,7 @@ class BusinessDashboardController
     }
 
     /**
-     * Muestra el panel principal con estadísticas rápidas, últimos pedidos y próximas reservas.
+     * Muestra el panel principal con estadísticas rápidas de productos, ventas y últimos pedidos.
      */
     public function index()
     {
@@ -48,20 +48,17 @@ class BusinessDashboardController
         $db = Database::getInstance()->getConnection();
         $stats = [];
 
-        // ── Estadísticas rápidas del panel ──
+        // ── 1. Productos Activos ──
         $stmt = $db->prepare('SELECT COUNT(*) as total FROM product WHERE business_id = ? AND activo = 1');
         $stmt->execute([$bid]);
-        $stats['products'] = (int)$stmt->fetch()['total'];
+        $stats['products_active'] = (int)$stmt->fetch()['total'];
 
-        $stmt = $db->prepare('SELECT COUNT(*) as total FROM service WHERE business_id = ? AND activo = 1');
+        // ── 2. Productos Inactivos ──
+        $stmt = $db->prepare('SELECT COUNT(*) as total FROM product WHERE business_id = ? AND activo = 0');
         $stmt->execute([$bid]);
-        $stats['services'] = (int)$stmt->fetch()['total'];
+        $stats['products_inactive'] = (int)$stmt->fetch()['total'];
 
-        $stmt = $db->prepare("SELECT COUNT(*) as total FROM reservation WHERE business_id = ? AND estado != 'CANCELADA'");
-        $stmt->execute([$bid]);
-        $stats['reservations'] = (int)$stmt->fetch()['total'];
-
-        // 🌟 NUEVO 1: Contar los pedidos PENDIENTES reales de este comercio (adiós al '3' de la barra)
+        // ── 3. Pedidos PENDIENTES reales (Lo dejamos por si tu menú superior lo usa para las notificaciones) ──
         $stmt = $db->prepare(
             "SELECT COUNT(DISTINCT p.id) as total 
              FROM purchase p
@@ -72,14 +69,15 @@ class BusinessDashboardController
         $stmt->execute([$bid]);
         $stats['pending_orders'] = (int)$stmt->fetch()['total'];
 
-        // 🌟 NUEVO 2: Calcular las Ventas Reales del Mes Actual para este comercio
+        // ── 4. Ventas Reales del Mes Actual (¡Modificado: Solo pedidos COMPLETADOS!) ──
+        // Cambiamos el '!= CANCELADO' por '= COMPLETADO' para reflejar el ciclo de vida cerrado
         $stmt = $db->prepare(
             "SELECT SUM(oi.precio_unitario * oi.cantidad) as total_mes
              FROM purchase p
              JOIN order_item oi ON oi.purchase_id = p.id
              JOIN product pr    ON pr.id = oi.product_id
              WHERE pr.business_id = ? 
-               AND p.estado = 'PAGADO' 
+               AND p.estado = 'COMPLETADO' -- 🔥 Filtro exacto para el ciclo de venta cerrado
                AND MONTH(p.created_at) = MONTH(CURRENT_DATE()) 
                AND YEAR(p.created_at) = YEAR(CURRENT_DATE())"
         );
@@ -87,7 +85,7 @@ class BusinessDashboardController
         $stats['monthly_sales'] = (float)($stmt->fetch()['total_mes'] ?? 0);
 
 
-        // ── Últimos 5 pedidos recibidos ──
+        // ── 5. Últimos 5 pedidos recibidos (Tabla del panel) ──
         $stmt = $db->prepare(
             "SELECT p.id, p.total, p.estado, p.created_at, u.nombre as client_name
              FROM purchase p
@@ -100,18 +98,7 @@ class BusinessDashboardController
         $stmt->execute([$bid]);
         $recentOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // ── Próximas 10 reservas pendientes ──
-        $stmt = $db->prepare(
-            "SELECT r.*, u.nombre as client_name, u.telefono as client_phone, s.nombre as service_name
-             FROM reservation r
-             JOIN user u ON u.id = r.user_id
-             LEFT JOIN reservation_item ri ON ri.reservation_id = r.id
-             LEFT JOIN service s ON s.id = ri.service_id
-             WHERE r.business_id = ? AND r.fecha >= CURDATE() AND r.estado != 'CANCELADA'
-             ORDER BY r.fecha, r.hora_inicio LIMIT 10"
-        );
-        $stmt->execute([$bid]);
-        $upcomingReservations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // 🌟 Servicios y Reservas eliminados por completo del flujo
 
         require_once ROOT_DIR . '/resources/views/business/dashboard.php';
     }
@@ -129,34 +116,31 @@ class BusinessDashboardController
         $search = isset($_GET['search']) ? trim($_GET['search']) : '';
         $statusForm = isset($_GET['status']) ? trim($_GET['status']) : '';
 
-        // 🌟 TRADUCCIÓN COMPLETA: Mapeamos el HTML al ENUM exacto de la Base de Datos
-        $estado = '';
-        switch (strtolower($statusForm)) {
-            case 'pendiente':
-                $estado = 'PENDIENTE';
-                break;
-            case 'pagado':
-            case 'completado': // Por si en el HTML se llama 'completado'
-                $estado = 'PAGADO';
-                break;
-            case 'preparacion':
-            case 'en-preparacion':
-            case 'en_preparacion':
-                $estado = 'EN PREPARACION';
-                break;
-            case 'enviado':
-                $estado = 'ENVIADO';
-                break;
-            case 'entregado':
-                $estado = 'ENTREGADO';
-                break;
-            case 'cancelado':
-                $estado = 'CANCELADO';
-                break;
-        }
+        // 🌟 TRADUCCIÓN COMPLETA: Mapeamos el HTML al ENUM exacto en Mayúsculas de la BD
+        // Usamos match para mantener el código limpio, directo y libre de estructuras pesadas
+        $estado = match (strtolower($statusForm)) {
+            'pendiente'                                   => 'PENDIENTE',
+            'preparando', 'preparacion', 'en_preparacion' => 'PREPARANDO',
+            'listo'                                       => 'LISTO',
+            'completado', 'pagado', 'entregado'           => 'COMPLETADO',
+            'cancelado'                                   => 'CANCELADO',
+            default                                       => ''
+        };
 
-        // 2. Calculamos las estadísticas para que la barra lateral no falle
+        // 2. Calculamos las estadísticas para que la barra lateral compartida no falle
         $stats = [];
+
+        // Productos Activos
+        $stmt = $db->prepare('SELECT COUNT(*) as total FROM product WHERE business_id = ? AND activo = 1');
+        $stmt->execute([$bid]);
+        $stats['products_active'] = (int)$stmt->fetch()['total'];
+
+        // Productos Inactivos
+        $stmt = $db->prepare('SELECT COUNT(*) as total FROM product WHERE business_id = ? AND activo = 0');
+        $stmt->execute([$bid]);
+        $stats['products_inactive'] = (int)$stmt->fetch()['total'];
+
+        // Pedidos PENDIENTES reales
         $stmt = $db->prepare(
             "SELECT COUNT(DISTINCT p.id) as total 
              FROM purchase p
@@ -168,7 +152,7 @@ class BusinessDashboardController
         $stats['pending_orders'] = (int)$stmt->fetch()['total'];
 
 
-        // 3. Consulta BASE (Traer los pedidos del comercio)
+        // 3. Consulta BASE (Traer los pedidos del comercio usando la tabla 'purchase')
         $sql = "SELECT p.id, p.total, p.estado, p.created_at, u.nombre as client_name, u.telefono as client_phone
                 FROM purchase p
                 JOIN order_item oi ON oi.purchase_id = p.id
@@ -179,14 +163,14 @@ class BusinessDashboardController
         // Inicializamos el array de parámetros para la consulta preparada
         $params = [':bid' => $bid];
 
-        // 4. FILTRO DINÁMICO: Si el usuario busca por Nombre o Teléfono
+        // 4. FILTRO DINÁMICO: Si el comerciante busca por Nombre o Teléfono
         if ($search !== '') {
             $sql .= " AND (u.nombre LIKE :search_name OR u.telefono LIKE :search_phone)";
             $params[':search_name'] = "%" . $search . "%";
             $params[':search_phone'] = "%" . $search . "%";
         }
 
-        // 5. FILTRO DINÁMICO: Si el usuario selecciona un estado concreto
+        // 5. FILTRO DINÁMICO: Si el comerciante selecciona un estado concreto en el desplegable
         if ($estado !== '') {
             $sql .= " AND p.estado = :estado";
             $params[':estado'] = $estado;
@@ -202,6 +186,46 @@ class BusinessDashboardController
 
         // Cargamos la vista de pedidos pasando $orders, $stats, $search y $estado
         require_once ROOT_DIR . '/resources/views/business/orders.php';
+    }
+
+    /**
+     * Actualiza el estado de un pedido desde el panel del comercio.
+     */
+    public function updateStatus()
+    {
+        $business = $this->requireBusinessProfile();
+        $bid = $business['id'];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $purchaseId = isset($_POST['purchase_id']) ? (int)$_POST['purchase_id'] : 0;
+            $nuevoEstado = isset($_POST['nuevo_estado']) ? trim($_POST['nuevo_estado']) : '';
+
+            // 🌟 CORREGIDO: Lista con tus 5 estados reales de la Base de Datos
+            $estadosValidos = ['PENDIENTE', 'PREPARANDO', 'LISTO', 'COMPLETADO', 'CANCELADO'];
+
+            if ($purchaseId > 0 && in_array($nuevoEstado, $estadosValidos)) {
+                $db = Database::getInstance()->getConnection();
+
+                // SEGURIDAD: Verificamos que el pedido contiene al menos un producto de este comercio
+                $checkStmt = $db->prepare(
+                    "SELECT COUNT(*) 
+                     FROM order_item oi
+                     JOIN product pr ON pr.id = oi.product_id
+                     WHERE oi.purchase_id = ? AND pr.business_id = ?"
+                );
+                $checkStmt->execute([$purchaseId, $bid]);
+
+                if ((int)$checkStmt->fetchColumn() > 0) {
+                    // Si todo es correcto, actualizamos el estado del pedido en la tabla 'purchase'
+                    $updateStmt = $db->prepare("UPDATE purchase SET estado = ? WHERE id = ?");
+                    $updateStmt->execute([$nuevoEstado, $purchaseId]);
+                }
+            }
+        }
+
+        // Redirigimos de vuelta a la pantalla de pedidos para ver los cambios reflejados
+        header('Location: ' . $_SERVER['HTTP_REFERER']);
+        exit;
     }
 
     /**
@@ -475,12 +499,20 @@ class BusinessDashboardController
             'hora_cierre' => $_POST['hora_cierre'] ?? '18:00',
         ];
 
+        // 🌟 CONTROL DE DUPLICADOS: Frenamos antes de intentar el "create"
+        if (\App\Models\Schedule::exists($data['business_id'], $data['dia_semana'], $data['hora_apertura'], $data['hora_cierre'])) {
+            Session::setFlash('error', 'Este horario ya está registrado para tu comercio.');
+            header('Location: ' . BASE_URL . '/business/dashboard/schedules');
+            exit;
+        }
+
         try {
             \App\Models\Schedule::create($data);
             Session::setFlash('success', 'Horario añadido.');
         } catch (\Throwable $e) {
             Session::setFlash('error', 'Error al guardar horario: ' . $e->getMessage());
         }
+
         header('Location: ' . BASE_URL . '/business/dashboard/schedules');
         exit;
     }
@@ -586,13 +618,26 @@ class BusinessDashboardController
         // 🔥 SOLUCIÓN AL ERROR 1366: Forzamos null si llega vacío
         $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
 
+        // ── NUEVO: Validar unidad de medida recibida del formulario ──
+        $unidad_medida = $_POST['unidad_medida'] ?? 'ud';
+        if (!in_array($unidad_medida, ['ud', 'kg'])) {
+            $unidad_medida = 'ud'; // Respaldo por seguridad
+        }
+
+        // ── NUEVO: Tratar el stock según la unidad (permitir decimales si es peso) ──
+        $rawStock = $_POST['stock'] ?? '0';
+        $rawStock = str_replace(',', '.', $rawStock); // Cambia comas por puntos por si teclean en formato ES
+        $stockFinal = ($unidad_medida === 'kg') ? floatval($rawStock) : intval($rawStock);
+
+        // ── Construcción del array de datos para el Modelo ──
         $data = [
             'business_id' => $business['id'],
-            'category_id' => $category_id, // Guardado seguro
+            'category_id' => $category_id,
             'nombre' => trim($_POST['nombre'] ?? ''),
             'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'precio' => floatval($_POST['precio'] ?? 0),
-            'stock' => intval($_POST['stock'] ?? 0),
+            'precio' => floatval(str_replace(',', '.', $_POST['precio'] ?? 0)), // Aseguramos formato decimal también en precio
+            'unidad_medida' => $unidad_medida, // 🔥 NUEVO: Guardamos la unidad de medida
+            'stock' => $stockFinal,             // 🔥 MODIFICADO: Ahora guarda enteros o decimales
             'imagen' => $imagenNombre,
             'activo' => isset($_POST['activo']) ? 1 : 0,
         ];
@@ -707,12 +752,25 @@ class BusinessDashboardController
         // 🔥 SOLUCIÓN AL ERROR 1366: Mismo tratamiento en la edición
         $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
 
+        // ── NUEVO: Validar unidad de medida recibida del formulario de edición ──
+        $unidad_medida = $_POST['unidad_medida'] ?? 'ud';
+        if (!in_array($unidad_medida, ['ud', 'kg'])) {
+            $unidad_medida = 'ud'; // Respaldo por seguridad
+        }
+
+        // ── NUEVO: Tratar el stock según la unidad (permitir decimales si es peso) ──
+        $rawStock = $_POST['stock'] ?? '0';
+        $rawStock = str_replace(',', '.', $rawStock); // Cambia comas por puntos por si teclean en formato ES
+        $stockFinal = ($unidad_medida === 'kg') ? floatval($rawStock) : intval($rawStock);
+
+        // ── Reconstrucción del array de datos para la actualización ──
         $data = [
-            'category_id' => $category_id, // Guardado seguro
+            'category_id' => $category_id,
             'nombre' => trim($_POST['nombre'] ?? ''),
             'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'precio' => floatval($_POST['precio'] ?? 0),
-            'stock' => intval($_POST['stock'] ?? 0),
+            'precio' => floatval(str_replace(',', '.', $_POST['precio'] ?? 0)), // Aseguramos formato decimal en precio
+            'unidad_medida' => $unidad_medida, // 🔥 NUEVO: Actualizamos la unidad de medida
+            'stock' => $stockFinal,             // 🔥 MODIFICADO: Guarda enteros o decimales según corresponda
             'imagen' => $imagenNombre,
             'activo' => isset($_POST['activo']) ? 1 : 0,
         ];
@@ -741,58 +799,39 @@ class BusinessDashboardController
         }
 
         try {
+            // 1. Intentamos primero el borrado físico en la Base de Datos
+            \App\Models\Product::delete($id);
+
+            // 2. SI Y SOLO SI se borró de la BD con éxito, limpiamos el disco
             if ($product->imagen) {
                 $imagePath = ROOT_DIR . '/public/img/products/' . $product->imagen;
                 if (file_exists($imagePath)) {
                     @unlink($imagePath);
                 }
             }
-            \App\Models\Product::delete($id);
-            Session::setFlash('success', 'Producto eliminado exitosamente.');
+
+            Session::setFlash('success', 'Producto eliminado permanentemente de la plataforma.');
         } catch (\Throwable $e) {
-            Session::setFlash('error', 'Error al eliminar: ' . $e->getMessage());
-        }
-        header('Location: ' . BASE_URL . '/business/dashboard/products');
-        exit;
-    }
+            // 3. Capturamos si el error es por la restricción de clave foránea (SQLSTATE 23000)
+            if ($e->getCode() == 23000 || strpos($e->getMessage(), '1451') !== false) {
 
-    /**
-     * Actualiza el estado de un pedido desde el panel del comercio.
-     */
-    public function updateStatus()
-    {
-        $business = $this->requireBusinessProfile();
-        $bid = $business['id'];
+                // Pasamos al "Borrado Lógico": Lo dejamos marcado como inactivo (activo = 0)
+                // NOTA: Adapta esta línea a cómo guardes o actualices en tu modelo Product
+                // Por ejemplo, si usas una consulta directa o un método update:
+                // Prueba con getConnection()
+                $db = \App\Core\Database::getInstance()->getConnection();
+                $stmt = $db->prepare("UPDATE product SET activo = 0 WHERE id = :id");
+                $stmt->execute(['id' => $id]);
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $purchaseId = isset($_POST['purchase_id']) ? (int)$_POST['purchase_id'] : 0;
-            $nuevoEstado = isset($_POST['nuevo_estado']) ? trim($_POST['nuevo_estado']) : '';
-
-            // Lista de estados permitidos (seguridad para tu ENUM)
-            $estadosValidos = ['PENDIENTE', 'PAGADO', 'EN PREPARACION', 'ENVIADO', 'ENTREGADO', 'CANCELADO'];
-
-            if ($purchaseId > 0 && in_array($nuevoEstado, $estadosValidos)) {
-                $db = Database::getInstance()->getConnection();
-
-                // SEGURIDAD: Verificamos que el pedido contiene al menos un producto de este comercio
-                $checkStmt = $db->prepare(
-                    "SELECT COUNT(*) 
-                     FROM order_item oi
-                     JOIN product pr ON pr.id = oi.product_id
-                     WHERE oi.purchase_id = ? AND pr.business_id = ?"
-                );
-                $checkStmt->execute([$purchaseId, $bid]);
-
-                if ((int)$checkStmt->fetchColumn() > 0) {
-                    // Si todo es correcto, actualizamos el estado del pedido
-                    $updateStmt = $db->prepare("UPDATE purchase SET estado = ? WHERE id = ?");
-                    $updateStmt->execute([$nuevoEstado, $purchaseId]);
-                }
+                // Mantenemos la imagen a salvo en el disco para que las compras antiguas no se queden rotas
+                Session::setFlash('success', 'El producto tiene pedidos asociados y no se puede destruir. Se ha desactivado y ocultado del marketplace automáticamente.');
+            } else {
+                // Si es cualquier otro error real de código o conexión, sí mostramos el error
+                Session::setFlash('error', 'Error al eliminar: ' . $e->getMessage());
             }
         }
 
-        // Redirigimos de vuelta a la pantalla de pedidos para ver los cambios reflejados
-        header('Location: ' . $_SERVER['HTTP_REFERER']);
+        header('Location: ' . BASE_URL . '/business/dashboard/products');
         exit;
     }
 
