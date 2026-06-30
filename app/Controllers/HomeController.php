@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Controllers/HomeController.php — Controlador de inicio
+// app/Controllers/HomeController.php — Controlador de inicio
 // Renderiza la página principal de Mercalocal.
 // =========================================================
 namespace App\Controllers;

@@ -1,9 +1,9 @@
 <?php
 // =========================================================
-// src/Controllers/UserController.php — Controlador del área de usuario
+// app/Controllers/UserController.php — Controlador del área de usuario
 // Gestiona las páginas privadas del cliente registrado:
 //   · Perfil personal
-//   · Historial de pedidos y reservas
+//   · Historial de pedidos
 // =========================================================
 namespace App\Controllers;
 
@@ -206,10 +206,11 @@ class UserController
         $userId = Session::get('user_id');
         $db = Database::getInstance()->getConnection();
 
-        // ── Obtener pedidos del usuario ordenados por fecha descendente (Tus tablas correctas) ──
+        // ── 🌟 ACTUALIZADO: Añadimos p.delivery_method a la consulta SQL ──
         $stmt = $db->prepare(
-            'SELECT p.id, p.total, p.estado, p.created_at FROM purchase p
-             WHERE p.user_id = ? ORDER BY p.created_at DESC'
+            'SELECT p.id, p.total, p.estado, p.created_at, p.delivery_method 
+         FROM purchase p
+         WHERE p.user_id = ? ORDER BY p.created_at DESC'
         );
         $stmt->execute([$userId]);
         $purchases = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -217,8 +218,8 @@ class UserController
         // Para cada pedido, cargar sus líneas de artículos con nombre y precio
         $stmtItems = $db->prepare(
             'SELECT oi.cantidad, oi.precio_unitario, pr.nombre
-             FROM order_item oi JOIN product pr ON pr.id = oi.product_id
-             WHERE oi.purchase_id = ?'
+         FROM order_item oi JOIN product pr ON pr.id = oi.product_id
+         WHERE oi.purchase_id = ?'
         );
 
         foreach ($purchases as &$p) {
@@ -226,11 +227,6 @@ class UserController
             $p['items'] = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
         }
         unset($p); // Romper la referencia para evitar efectos secundarios
-
-        // ── Adaptación MVP ──
-        // Como eliminamos los servicios, forzamos $reservations como array vacío 
-        // para que la vista no lance un "Undefined variable" si hereda código antiguo.
-        $reservations = [];
 
         // $orders es un alias de $purchases para mayor claridad en la vista
         $orders = $purchases;

@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Models/Product.php — Modelo de producto
+// app/Models/Product.php — Modelo de producto
 // Representa un artículo que un comercio pone a la venta.
 // Gestiona la lectura de registros de la tabla `product`.
 // =========================================================

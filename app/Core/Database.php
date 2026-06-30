@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Core/Database.php — Capa de acceso a la base de datos
+// app/Core/Database.php — Capa de acceso a la base de datos
 // Implementa el patrón Singleton para reutilizar una única
 // conexión PDO a lo largo de toda la petición HTTP.
 // =========================================================
@@ -40,8 +40,7 @@ class Database
             $this->pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
             // Forzar el juego de caracteres UTF-8 para soportar tildes y caracteres especiales
             $this->pdo->exec("SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'");
-        }
-        catch (\PDOException $e) {
+        } catch (\PDOException $e) {
             throw new \PDOException($e->getMessage(), (int)$e->getCode());
         }
     }

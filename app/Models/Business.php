@@ -143,32 +143,6 @@ class Business
         return $stmt->fetch();
     }
 
-    // /**
-    //  * Obtener rating promedio y total de reseñas
-    //  */
-    // public function getRating()
-    // {
-    //     return \App\Models\Review::getAverageRating($this->id);
-    // }
-
-    // /**
-    //  * Devuelve todos los servicios activos de este comercio
-    //  * junto con el nombre de su categoría.
-    //  *
-    //  * @return array Array asociativo con los servicios
-    //  */
-    // public function getServices()
-    // {
-    //     $db = Database::getInstance()->getConnection();
-    //     $stmt = $db->prepare(
-    //         "SELECT s.*, s.duracion_minutos AS duracion, c.nombre as category_name
-    //          FROM service s
-    //          LEFT JOIN category c ON s.category_id = c.id
-    //          WHERE s.business_id = ? AND s.activo = 1"
-    //     );
-    //     $stmt->execute([$this->id]);
-    //     return $stmt->fetchAll();
-    // }
 
     /**
      * Devuelve todos los productos activos de este comercio

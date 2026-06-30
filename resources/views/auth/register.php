@@ -109,7 +109,7 @@ $ic = function (string $field) use ($errors) {
 
             <!-- Boton -->
             <div class="pt-2">
-                <button type="submit" class="btn-primary w-full py-3 text-base">
+                <button type="submit" class="btn-primary w-full py-3 text-base cursor-pointer">
                     Registrarme
                 </button>
             </div>

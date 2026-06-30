@@ -5,10 +5,11 @@
 function estadoBadgeClass(string $estado): string
 {
     return match (strtolower($estado)) {
-        'pendiente'   => 'bg-yellow-50 text-yellow-700 border-yellow-200',
-        'completado'  => 'bg-green-50 text-green-700 border-green-200',
-        'cancelado'   => 'bg-red-50 text-red-700 border-red-200',
-        'en proceso'  => 'bg-blue-50 text-blue-700 border-blue-200',
+        'pendiente'   => 'bg-yellow-50 text-yellow-800 border-yellow-200',
+        'preparando'  => 'bg-blue-50 text-blue-800 border-blue-200',
+        'listo'       => 'bg-indigo-50 text-indigo-800 border-indigo-200',
+        'completado'  => 'bg-green-50 text-green-800 border-green-200',
+        'cancelado'   => 'bg-red-50 text-red-800 border-red-200',
         default       => 'bg-gray-50 text-gray-700 border-gray-200',
     };
 }
@@ -84,9 +85,18 @@ function estadoBadgeClass(string $estado): string
                                     <?php endif; ?>
 
                                     <div class="mt-4 pt-3 border-t border-gray-100 text-sm flex flex-col gap-1 text-gray-600">
-                                        <div class="flex justify-between">
+                                        <div class="flex justify-between items-center">
                                             <span>Método de entrega:</span>
-                                            <span class="font-medium">Envío a domicilio / Recogida</span> <!-- Dinamizar en el futuro -->
+
+                                            <?php if (($order['delivery_method'] ?? 'domicilio') === 'tienda'): ?>
+                                                <span class="font-semibold text-amber-700 flex items-center gap-1.5 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-xs">
+                                                    <i class="fa-solid fa-shop"></i> Recogida en tienda
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="font-semibold text-indigo-700 flex items-center gap-1.5 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 text-xs">
+                                                    <i class="fa-solid fa-motorcycle"></i> Envío a domicilio
+                                                </span>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -99,4 +109,4 @@ function estadoBadgeClass(string $estado): string
     </div>
 </main>
 
-<?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>
+<?php require_once ROOT_DIR . '/resources/views/layout/footer_dashboard.php'; ?>

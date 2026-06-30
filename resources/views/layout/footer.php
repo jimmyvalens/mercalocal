@@ -13,7 +13,7 @@
                     <img src="<?= $logoFile ?>" alt="Mercalocal" style="height:38px; width:auto;">
                     <span style="font-weight:800; font-size:1.15rem; color:white;">Merca<span style="color:#f97316;">local</span></span>
                 </a>
-                <p style="color:#9dc9a8; font-size:.85rem; line-height:1.7; margin:0;">Conectando vecinos con los mejores comercios de su barrio.</p>
+                <p style="color:#9dc9a8; font-size:.85rem; line-height:1.7; margin:0;">Conectando vecinos con los comercios de su barrio.</p>
                 <div style="display:flex; gap:.75rem; margin-top:1rem;">
                     <a href="#" style="color:#9dc9a8; font-size:1.1rem;" onmouseover="this.style.color='var(--ml-beige)'" onmouseout="this.style.color='#9dc9a8'"><i class="fa-brands fa-instagram"></i></a>
                     <a href="#" style="color:#9dc9a8; font-size:1.1rem;" onmouseover="this.style.color='var(--ml-beige)'" onmouseout="this.style.color='#9dc9a8'"><i class="fa-brands fa-facebook"></i></a>

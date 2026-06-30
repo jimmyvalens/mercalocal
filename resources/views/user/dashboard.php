@@ -108,4 +108,4 @@
     </div>
 </main>
 
-<?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>
+<?php require_once ROOT_DIR . '/resources/views/layout/footer_dashboard.php'; ?>

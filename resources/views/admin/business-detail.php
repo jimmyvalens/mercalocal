@@ -3,7 +3,6 @@
 /**
  * @var array $business Información del comercio con propietario
  * @var array $products Array de productos del comercio
- * @var array $services Array de servicios del comercio
  * @var array $businessStats Estadísticas de ventas e ingresos
  */
 require_once ROOT_DIR . '/resources/views/main_header.php';

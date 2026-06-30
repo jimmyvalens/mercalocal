@@ -166,7 +166,7 @@ class AuthController
                 exit;
             }
 
-            Session::setFlash('success', '¡Bienvenido de nuevo, ' . htmlspecialchars($user->nombre) . '!');
+            // Session::setFlash('success', '¡Bienvenido de nuevo, ' . htmlspecialchars($user->nombre) . '!');
             session_write_close();
             header('Location: ' . BASE_URL . '/user/dashboard');
             exit;

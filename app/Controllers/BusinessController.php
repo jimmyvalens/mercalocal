@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Controllers/BusinessController.php — Controlador público de comercios
+// app/Controllers/BusinessController.php — Controlador público de comercios
 // Gestiona las páginas visibles para todos los visitantes:
 //   · Listado/catálogo de comercios con búsqueda y filtro por categoría
 //   · Ficha detallada de un comercio con sus productos, servicios y horarios
@@ -98,7 +98,6 @@ class BusinessController
                     'email' => $business->email,
                     'web' => $business->web,
                     'categorias' => $business->categorias,
-                    'rating' => $business->getRating()
                 ];
             }, $businesses);
 
@@ -145,9 +144,7 @@ class BusinessController
                 'categorias' => $business->categorias,
                 'created_at' => $business->created_at,
                 'updated_at' => $business->updated_at,
-                'rating' => $business->getRating(),
                 'products' => $business->getProducts(),
-                'services' => $business->getServices(),
                 'schedules' => $business->getSchedules()
             ];
 

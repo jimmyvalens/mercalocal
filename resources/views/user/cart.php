@@ -11,10 +11,6 @@ if (!empty($_SESSION['cart'])) {
     }
 }
 
-// // 2. DATOS DEL CLIENTE DINÁMICOS
-// $direccionEnvio = 'No especificada en el perfil';
-// $telefonoContacto = 'No especificado';
-
 if (Session::get('user_id')) {
     $currentUser = User::findById(Session::get('user_id'));
     if ($currentUser) {
@@ -26,209 +22,17 @@ if (Session::get('user_id')) {
 require_once ROOT_DIR . '/resources/views/main_header.php';
 ?>
 
+
 <div style="background-color: #f7fbf8; min-height: 100vh; padding: 40px 0; font-family: 'Inter', sans-serif;">
-    <style>
-        .cart-container {
-            max-width: 1050px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        .cart-wrapper {
-            display: flex;
-            gap: 40px;
-            align-items: flex-start;
-        }
-
-        .products-column {
-            flex: 0 0 62%;
-        }
-
-        .summary-column {
-            flex: 0 0 34%;
-        }
-
-        .top-nav-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 40px;
-        }
-
-        .btn-clear {
-            background: none;
-            border: none;
-            color: #94a3b8;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: 0.2s;
-        }
-
-        .btn-clear:hover {
-            color: #ef4444;
-        }
-
-        .product-card {
-            background: white;
-            border-radius: 24px;
-            border: 1px solid #d4e8da;
-            padding: 30px;
-            margin-bottom: 24px;
-            position: relative;
-            display: flex;
-            gap: 24px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
-        }
-
-        .product-img-wrapper {
-            width: 120px;
-            height: 120px;
-            background: #f7fbf8;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #d4e8da;
-            flex-shrink: 0;
-        }
-
-        .product-details-content {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .product-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #f1f5f9;
-        }
-
-        .product-controls-left {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .price-wrapper {
-            text-align: right;
-        }
-
-        .delivery-option {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 20px;
-            border-radius: 16px;
-            background: #ffffff;
-            border: 1px solid #d4e8da;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        .delivery-option:hover,
-        .delivery-option.active {
-            border-color: #00b050;
-            background: #f0fdf4;
-        }
-
-        /* --- Estilos Responsivos Estrictos --- */
-        @media (max-width: 992px) {
-            .cart-wrapper {
-                flex-direction: column;
-            }
-
-            .products-column,
-            .summary-column {
-                flex: 0 0 100%;
-                width: 100%;
-            }
-
-            .summary-column {
-                position: static !important;
-                margin-top: 20px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .top-nav-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 20px;
-                margin-bottom: 30px;
-            }
-
-            .product-card {
-                flex-direction: column;
-                padding: 20px;
-                gap: 15px;
-            }
-
-            .product-img-wrapper {
-                width: 100%;
-                height: 140px;
-            }
-
-            .product-details-content {
-                padding-right: 0;
-            }
-
-            .product-title {
-                padding-right: 40px;
-            }
-
-            .product-controls {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 15px;
-            }
-
-            .product-controls-left {
-                flex-wrap: wrap;
-                gap: 10px;
-                width: 100%;
-            }
-
-            .price-wrapper {
-                width: 100%;
-                text-align: right;
-                padding-top: 10px;
-                border-top: 1px dashed #e2e8f0;
-                display: flex;
-                justify-content: space-between;
-                align-items: baseline;
-            }
-
-            .price-wrapper::before {
-                content: "Subtotal:";
-                font-size: 11px;
-                font-weight: 800;
-                color: #94a3b8;
-                text-transform: uppercase;
-            }
-        }
-    </style>
-
     <div class="cart-container">
         <!-- TOP NAV: SEGUIR COMPRANDO & TU CESTA -->
         <div class="top-nav-header">
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-                <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; display: flex; flex-wrap: wrap; gap: 8px;">
-                    <a href="<?= BASE_URL ?>/" style="color: #94a3b8; text-decoration: none;">Inicio</a>
-                    <span style="color: #94a3b8;">/</span>
-                    <span style="color: #1a2e1f;">Tu Cesta</span>
-                </div>
-                <h1 style="font-size: 32px; font-weight: 900; color: #1a2e1f; margin: 0; letter-spacing: -1px;">Tu Cesta</h1>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <i class="fa-solid fa-basket-shopping" style="color: #f97316; font-size: 28px;"></i>
+
+                <h2 style="font-size: 32px; font-weight: 900; color: #1a2e1f; margin: 0; letter-spacing: -1px;">
+                    Tu Cesta
+                </h2>
             </div>
 
             <a href="<?= BASE_URL ?>/businesses" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; color: #00b050; font-weight: 800; font-size: 13px; padding: 12px 20px; background: white; border-radius: 12px; border: 1.5px solid #00b050; transition: 0.2s; width: fit-content;" onmouseover="this.style.background='#00b050'; this.style.color='white'" onmouseout="this.style.background='white'; this.style.color='#00b050'">
@@ -248,14 +52,18 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
         <?php else: ?>
 
             <!-- VACIAR CESTA -->
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 20px; padding-right: 10px;">
-                <form action="<?= BASE_URL ?>/cart/clear" method="POST" onsubmit="return confirm('¿Vaciar toda la cesta?')">
-                    <?= \App\Core\Session::csrfField() ?>
-                    <button type="submit" class="btn-clear">
-                        <i class="fa-solid fa-trash-can"></i> Vaciar mi cesta
-                    </button>
-                </form>
-            </div>
+            <form action="<?= BASE_URL ?>/cart/clear"
+                method="POST"
+                class="form-eliminar"
+                data-titulo="¿Vaciar la cesta?"
+                data-texto="Se eliminarán todos los productos de tu cesta. Esta acción no se puede deshacer.">
+
+                <?= \App\Core\Session::csrfField() ?>
+
+                <button type="submit" class="btn-clear" style="margin: 24px; text-align:end;">
+                    <i class="fa-solid fa-trash-can"></i> Vaciar mi cesta
+                </button>
+            </form>
 
             <div class="cart-wrapper">
 
@@ -274,7 +82,23 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                             </form>
 
                             <div class="product-img-wrapper">
-                                <i class="fa-solid fa-box-open" style="font-size: 40px; color: #d4e8da;"></i>
+                                <?php
+                                // Construimos la ruta sumando la carpeta que faltaba
+                                $rutaImagen = BASE_URL . '/img/products/' . htmlspecialchars($item['imagen']);
+                                ?>
+
+                                <?php if (!empty($item['imagen'])): ?>
+                                    <img src="<?= $rutaImagen ?>"
+                                        alt="<?= htmlspecialchars($item['nombre']) ?>"
+                                        class="w-full h-full object-cover"
+                                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+
+                                    <div class="w-full h-full items-center justify-center" style="display:none;">
+                                        <i class="fa-solid fa-box-open" style="font-size: 40px; color: #d4e8da;"></i>
+                                    </div>
+                                <?php else: ?>
+                                    <i class="fa-solid fa-box-open" style="font-size: 40px; color: #d4e8da;"></i>
+                                <?php endif; ?>
                             </div>
 
                             <div class="product-details-content">
@@ -282,16 +106,7 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                                     <h3 class="product-title" style="font-size: 18px; font-weight: 900; color: #1a2e1f; margin: 0 0 12px 0; line-height: 1.2;">
                                         <?= htmlspecialchars($item['nombre'], ENT_QUOTES, 'UTF-8') ?>
                                     </h3>
-                                    <div style="display: flex; flex-direction: column; gap: 8px;">
-                                        <div style="display: flex; align-items: center;">
-                                            <i class="fa-solid fa-circle-check" style="color: #00b050; font-size: 14px; margin-right: 12px;"></i>
-                                            <span style="font-size: 11px; font-weight: 700; color: #5a7a64;">Recogida en tienda gratuita</span>
-                                        </div>
-                                        <div style="display: flex; align-items: center;">
-                                            <i class="fa-solid fa-truck-fast" style="color: #00b050; font-size: 14px; margin-right: 12px;"></i>
-                                            <span style="font-size: 11px; font-weight: 700; color: #5a7a64;">Env&iacute;o local disponible</span>
-                                        </div>
-                                    </div>
+
                                 </div>
 
                                 <div class="product-controls">
@@ -338,24 +153,6 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                     <div style="background: white; border-radius: 32px; border: 1px solid #d4e8da; padding: 35px; position: sticky; top: 100px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);">
                         <h2 style="font-size: 20px; font-weight: 900; color: #1a2e1f; margin-bottom: 25px; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px;">Resumen de pedido</h2>
 
-                        <!-- OPCIONES ENTREGA -->
-                        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px;">
-                            <label class="delivery-option active">
-                                <input type="radio" name="d" checked style="accent-color: #00b050; width: 18px; height: 18px;">
-                                <div style="display: flex; flex-direction: column;">
-                                    <span style="font-size: 13px; font-weight: 800; color: #1a2e1f;">Env&iacute;o a Domicilio</span>
-                                    <span style="font-size: 10px; font-weight: 800; color: #00b050; text-transform: uppercase;">Ma&ntilde;ana mismo</span>
-                                </div>
-                            </label>
-                            <label class="delivery-option">
-                                <input type="radio" name="d" style="accent-color: #00b050; width: 18px; height: 18px;">
-                                <div style="display: flex; flex-direction: column;">
-                                    <span style="font-size: 13px; font-weight: 800; color: #1a2e1f;">Recogida en Tienda</span>
-                                    <span style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Gratis</span>
-                                </div>
-                            </label>
-                        </div>
-
                         <!-- TOTALES -->
                         <div style="margin-bottom: 35px;">
                             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
@@ -378,6 +175,24 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                         <!-- BOTÓN PAGO -->
                         <form action="<?= BASE_URL ?>/checkout" method="POST">
                             <?= \App\Core\Session::csrfField() ?>
+
+                            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px;">
+                                <p style="font-size: 13px; font-weight: 800; color: #1a2e1f;">Opciones de entrega</p>
+                                <label class="delivery-option active" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="radio" name="delivery_method" value="domicilio" checked style="accent-color: #00b050; width: 18px; height: 18px;">
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="font-size: 13px; font-weight: 800; color: #1a2e1f;">Envío a Domicilio</span>
+                                    </div>
+                                </label>
+
+                                <label class="delivery-option" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="radio" name="delivery_method" value="tienda" style="accent-color: #00b050; width: 18px; height: 18px;">
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="font-size: 13px; font-weight: 800; color: #1a2e1f;">Recogida en Tienda</span>
+                                    </div>
+                                </label>
+                            </div>
+
                             <button type="submit" style="width: 100%; background: #00b050; color: white; border: none; border-radius: 14px; padding: 18px; font-size: 15px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 6px -1px rgba(0, 176, 80, 0.2);" onmouseover="this.style.background='#008c3d'" onmouseout="this.style.background='#00b050'">
                                 Tramitar Pedido <i class="fa-solid fa-arrow-right-long"></i>
                             </button>
@@ -396,4 +211,4 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
     </div>
 </div>
 
-<?php require_once ROOT_DIR . '/resources/views/layout/footer.php'; ?>
+<?php require_once ROOT_DIR . '/resources/views/layout/footer_dashboard.php'; ?>

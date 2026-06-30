@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Models/Schedule.php — Modelo de horarios de apertura
+// app/Models/Schedule.php — Modelo de horarios de apertura
 // =========================================================
 namespace App\Models;
 
