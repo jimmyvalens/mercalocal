@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Models/User.php — Modelo de usuario
+// app/Models/User.php — Modelo de usuario
 // Representa a un usuario registrado en la plataforma.
 // Gestiona la lectura y creación de registros en la tabla `user`.
 // Los roles posibles son: USER, BUSINESS y ADMIN.
@@ -8,7 +8,6 @@
 namespace App\Models;
 
 use App\Core\Database;
-use PDO;
 
 class User
 {

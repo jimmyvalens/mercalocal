@@ -84,44 +84,118 @@ function estadoBadge(?string $estado): string
                     <p class="text-gray-500 max-w-sm mx-auto mb-8 text-lg">Los pedidos que realicen tus clientes aparecerán aquí automáticamente.</p>
                 </div>
             <?php else: ?>
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full max-w-full">
+                    <div class="overflow-x-auto">
+                        <ul class="divide-y divide-gray-100">
+                            <?php foreach ($orders as $o): ?>
+                                <li class="p-8 hover:bg-gray-50 flex flex-col gap-4 transition-colors">
 
-                <ul class="divide-y divide-gray-100">
-                    <?php foreach ($orders as $o): ?>
-                        <li class="p-8 hover:bg-gray-50 flex justify-between items-center transition-colors">
+                                    <div class="flex justify-between items-center">
+                                        <div class="flex items-center gap-6">
+                                            <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl font-bold shadow-sm">
+                                                #<?= $o['id'] ?>
+                                            </div>
+                                            <div>
+                                                <div class="flex items-center gap-3 mb-1">
+                                                    <p class="font-bold text-gray-900 text-xl"><?= htmlspecialchars($o['client_name']) ?></p>
 
-                            <div class="flex items-center gap-6">
-                                <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl font-bold shadow-sm">
-                                    #<?= $o['id'] ?>
-                                </div>
-                                <div>
-                                    <p class="font-bold text-gray-900 text-xl mb-1"><?= htmlspecialchars($o['client_name']) ?></p>
-                                    <p class="text-sm text-gray-500 flex items-center gap-2">
-                                        <i class="fa-regular fa-clock"></i> <?= date('d-m-Y H:i', strtotime($o['created_at'])) ?>
-                                    </p>
-                                </div>
-                            </div>
+                                                    <?php if (($o['delivery_method'] ?? 'domicilio') === 'tienda'): ?>
+                                                        <span class="bg-amber-50 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1.5 border border-amber-200">
+                                                            <i class="fa-solid fa-shop"></i> Recogida
+                                                        </span>
+                                                    <?php else: ?>
+                                                        <span class="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1.5 border border-indigo-200">
+                                                            <i class="fa-solid fa-motorcycle"></i> Domicilio
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
 
-                            <div class="text-right flex flex-col items-end">
-                                <p class="font-bold text-secondary text-2xl mb-2"><?= number_format($o['total'], 2, ',', '.') ?> &euro;</p>
+                                                <p class="text-sm text-gray-500 flex items-center gap-2">
+                                                    <i class="fa-regular fa-clock"></i> <?= date('d-m-Y H:i', strtotime($o['created_at'])) ?>
+                                                </p>
+                                            </div>
+                                        </div>
 
-                                <form action="/business/dashboard/orders/update-status" method="POST">
-                                    <input type="hidden" name="purchase_id" value="<?= $o['id'] ?>">
-                                    <?= \App\Core\Session::csrfField() ?>
+                                        <div class="text-right flex flex-col items-end">
+                                            <p class="font-bold text-secondary text-2xl mb-2"><?= number_format($o['total'], 2, ',', '.') ?> &euro;</p>
 
-                                    <select name="nuevo_estado" onchange="this.form.submit()"
-                                        class="text-xs font-bold px-3 py-1.5 rounded-lg border <?= estadoBadge($o['estado']) ?> uppercase tracking-wider shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-center">
-                                        <option value="PENDIENTE" <?= $o['estado'] === 'PENDIENTE' ? 'selected' : '' ?>>Pendiente</option>
-                                        <option value="PREPARANDO" <?= $o['estado'] === 'PREPARANDO' ? 'selected' : '' ?>>Preparando</option>
-                                        <option value="LISTO" <?= $o['estado'] === 'LISTO' ? 'selected' : '' ?>>Listo</option>
-                                        <option value="COMPLETADO" <?= $o['estado'] === 'COMPLETADO' ? 'selected' : '' ?>>Completado</option>
-                                        <option value="CANCELADO" <?= $o['estado'] === 'CANCELADO' ? 'selected' : '' ?>>Cancelado</option>
-                                    </select>
-                                </form>
-                            </div>
+                                            <form action="/business/dashboard/orders/update-status" method="POST">
+                                                <input type="hidden" name="purchase_id" value="<?= $o['id'] ?>">
+                                                <?= \App\Core\Session::csrfField() ?>
 
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
+                                                <select name="nuevo_estado" onchange="this.form.submit()"
+                                                    class="text-xs font-bold px-3 py-1.5 rounded-lg border <?= estadoBadge($o['estado']) ?> uppercase tracking-wider shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-center">
+                                                    <option value="PENDIENTE" <?= $o['estado'] === 'PENDIENTE' ? 'selected' : '' ?>>Pendiente</option>
+                                                    <option value="PREPARANDO" <?= $o['estado'] === 'PREPARANDO' ? 'selected' : '' ?>>Preparando</option>
+                                                    <option value="LISTO" <?= $o['estado'] === 'LISTO' ? 'selected' : '' ?>>Listo</option>
+                                                    <option value="COMPLETADO" <?= $o['estado'] === 'COMPLETADO' ? 'selected' : '' ?>>Completado</option>
+                                                    <option value="CANCELADO" <?= $o['estado'] === 'CANCELADO' ? 'selected' : '' ?>>Cancelado</option>
+                                                </select>
+                                            </form>
+                                        </div>
+                                    </div>
+
+                                    <div class="ml-20 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm text-gray-600">
+                                        <div class="flex items-start gap-2.5">
+                                            <div class="p-2 bg-blue-100 text-blue-600 rounded-lg mt-0.5">
+                                                <i class="fa-solid fa-phone text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Teléfono del cliente</p>
+                                                <p class="font-semibold text-gray-900 font-mono"><?= htmlspecialchars($o['client_phone'] ?? 'No disponible') ?></p>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex items-start gap-2.5">
+                                            <?php if (($o['delivery_method'] ?? 'domicilio') === 'tienda'): ?>
+                                                <div class="p-2 bg-amber-100 text-amber-700 rounded-lg mt-0.5">
+                                                    <i class="fa-solid fa-store text-xs"></i>
+                                                </div>
+                                                <div>
+                                                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Destino del pedido</p>
+                                                    <p class="font-medium text-amber-800">Sin envío. El cliente recogerá el pedido presencialmente.</p>
+                                                </div>
+                                            <?php else: ?>
+                                                <div class="p-2 bg-indigo-100 text-indigo-600 rounded-lg mt-0.5">
+                                                    <i class="fa-solid fa-location-dot text-xs"></i>
+                                                </div>
+                                                <div>
+                                                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Dirección de envío</p>
+                                                    <p class="font-semibold text-gray-900">
+                                                        <?= htmlspecialchars($o['calle'] ?? 'Dirección omitida') ?>, Nº <?= htmlspecialchars($o['numero'] ?? '-') ?>
+                                                    </p>
+                                                    <p class="text-xs text-gray-500 mt-0.5">
+                                                        <?= htmlspecialchars($o['codigo_postal'] ?? '-') ?> - <?= htmlspecialchars($o['ciudad'] ?? '-') ?> (<?= htmlspecialchars($o['provincia'] ?? '-') ?>)
+                                                    </p>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+
+                                    <?php if (!empty($o['items'])): ?>
+                                        <div class="bg-gray-50 border border-gray-100 rounded-xl p-4 ml-20">
+                                            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Productos a preparar:</p>
+                                            <ul class="space-y-1.5">
+                                                <?php foreach ($o['items'] as $item): ?>
+                                                    <li class="text-sm text-gray-700 flex justify-between items-center max-w-md">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-extrabold">
+                                                                x<?= $item['cantidad'] ?>
+                                                            </span>
+                                                            <span class="font-medium"><?= htmlspecialchars($item['producto_nombre']) ?></span>
+                                                        </div>
+                                                        <span class="text-gray-400 text-xs">(<?= number_format($item['precio_unitario'], 2, ',', '.') ?> €/u)</span>
+                                                    </li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        </div>
+                                    <?php endif; ?>
+
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                </div>
             <?php endif; ?>
         </div>
     </div>

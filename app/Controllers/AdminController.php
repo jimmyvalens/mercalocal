@@ -103,16 +103,12 @@ class AdminController
 
         // 3. CONSULTA PRINCIPAL LIMITADA (Trae solo el bloque de la página actual)
         $sql = "SELECT b.*, u.nombre as owner_name, u.email as owner_email,
-                       COUNT(DISTINCT p.id) as product_count,
-                       COUNT(DISTINCT s.id) as service_count
-                FROM business b
-                JOIN user u ON b.user_id = u.id
-                LEFT JOIN product p ON p.business_id = b.id AND p.activo = 1
-                LEFT JOIN service s ON s.business_id = b.id AND s.activo = 1"
+               (SELECT COUNT(*) FROM product p WHERE p.business_id = b.id AND p.activo = 1) as product_count
+        FROM business b
+        JOIN user u ON b.user_id = u.id "
             . $whereSql
-            . " GROUP BY b.id 
-                   ORDER BY b.created_at DESC 
-                   LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
+            . " ORDER BY b.created_at DESC 
+        LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
 
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
@@ -168,17 +164,6 @@ class AdminController
         );
         $stmt->execute([$id]);
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Servicios del comercio
-        $stmt = $db->prepare(
-            "SELECT s.*, s.duracion_minutos AS duracion, c.nombre as category_name
-             FROM service s
-             LEFT JOIN category c ON s.category_id = c.id
-             WHERE s.business_id = ?
-             ORDER BY s.created_at DESC"
-        );
-        $stmt->execute([$id]);
-        $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Estadísticas avanzadas del comercio
         $stmt = $db->prepare(
@@ -490,18 +475,6 @@ class AdminController
                 Session::setFlash('error', 'No se puede eliminar el comercio porque hay clientes con productos en el carrito.');
             }
 
-            // 2. BORRAR RESERVAS Y SUS ITEMS
-            $db->prepare("DELETE FROM reservation WHERE business_id = ?")->execute([$id]);
-
-            $stmtGetServ = $db->prepare("SELECT id FROM service WHERE business_id = ?");
-            $stmtGetServ->execute([$id]);
-            $servicios = $stmtGetServ->fetchAll(PDO::FETCH_COLUMN);
-
-            if (!empty($servicios)) {
-                $placeholders = implode(',', array_fill(0, count($servicios), '?'));
-                $db->prepare("DELETE FROM reservation_item WHERE service_id IN ($placeholders)")->execute($servicios);
-            }
-
             // 3. BORRAR ITEMS DE PEDIDOS (Order Items)
             // Primero buscamos los productos del negocio para limpiar sus items de pedido
             $stmtGetProd = $db->prepare("SELECT id FROM product WHERE business_id = ?");
@@ -512,10 +485,6 @@ class AdminController
                 $placeholdersProd = implode(',', array_fill(0, count($productos), '?'));
                 $db->prepare("DELETE FROM order_item WHERE product_id IN ($placeholdersProd)")->execute($productos);
             }
-
-            // 4. BORRAR SERVICIOS Y PRODUCTOS
-            // Para servicios usamos el ID del comercio directamente
-            $db->prepare("DELETE FROM service WHERE business_id = ?")->execute([$id]);
 
             // Para productos, también podemos usar el ID del comercio (más simple y seguro)
             $db->prepare("DELETE FROM product WHERE business_id = ?")->execute([$id]);

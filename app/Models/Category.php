@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Models/Category.php — Modelo de categoría
+// app/Models/Category.php — Modelo de categoría
 // Representa una categoría temática (p.ej. Alimentación,
 // Peluquería, Deportes) que agrupa productos y servicios.
 // =========================================================

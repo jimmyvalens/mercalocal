@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Controllers/BusinessDashboardController.php
+// app/Controllers/BusinessDashboardController.php
 // Controlador del panel de control privado del comercio.
 // Gestiona el flujo de estadísticas, configuración, productos,
 // servicios y horarios del comercio.
@@ -98,8 +98,6 @@ class BusinessDashboardController
         $stmt->execute([$bid]);
         $recentOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // 🌟 Servicios y Reservas eliminados por completo del flujo
-
         require_once ROOT_DIR . '/resources/views/business/dashboard.php';
     }
 
@@ -153,11 +151,15 @@ class BusinessDashboardController
 
 
         // 3. Consulta BASE (Traer los pedidos del comercio usando la tabla 'purchase')
-        $sql = "SELECT p.id, p.total, p.estado, p.created_at, u.nombre as client_name, u.telefono as client_phone
+        // 🌟 ACTUALIZADO: Añadimos los campos de la dirección y el LEFT JOIN correspondiente
+        $sql = "SELECT p.id, p.total, p.estado, p.created_at, p.delivery_method, 
+                       u.nombre as client_name, u.telefono as client_phone,
+                       a.calle, a.numero, a.codigo_postal, a.ciudad, a.provincia -- 🌟 Campos de dirección
                 FROM purchase p
                 JOIN order_item oi ON oi.purchase_id = p.id
                 JOIN product pr    ON pr.id = oi.product_id
                 JOIN user u        ON u.id  = p.user_id
+                LEFT JOIN address a ON a.id = p.address_id -- 🌟 Vinculamos la dirección real de esta compra
                 WHERE pr.business_id = :bid";
 
         // Inicializamos el array de parámetros para la consulta preparada
@@ -183,6 +185,22 @@ class BusinessDashboardController
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
         $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Preparar la consulta para traer los artículos de este comercio
+        $stmtItems = $db->prepare(
+            "SELECT oi.cantidad, oi.precio_unitario, pr.nombre as producto_nombre
+             FROM order_item oi
+             JOIN product pr ON pr.id = oi.product_id
+             WHERE oi.purchase_id = ? AND pr.business_id = ?"
+        );
+
+        // 🌟 USAMOS REFERENCIA (&$o) para inyectar a cada pedido su lista completa de productos
+        foreach ($orders as &$o) {
+            $stmtItems->execute([$o['id'], $bid]);
+            $o['items'] = $stmtItems->fetchAll(PDO::FETCH_ASSOC); // Guardamos la colección completa de filas
+        }
+
+        unset($o); // Rompemos la referencia por seguridad en memoria
 
         // Cargamos la vista de pedidos pasando $orders, $stats, $search y $estado
         require_once ROOT_DIR . '/resources/views/business/orders.php';
@@ -273,209 +291,6 @@ class BusinessDashboardController
         header('Location: ' . BASE_URL . '/business/dashboard');
         exit;
     }
-
-    // // ---------------------------------------------------------------------
-    // // GESTIÓN DE SERVICIOS
-    // // ---------------------------------------------------------------------
-
-    // public function servicesIndex()
-    // {
-    //     $business = $this->requireBusinessProfile();
-    //     $services = \App\Models\Service::getByBusiness($business['id']);
-    //     require_once ROOT_DIR . '/resources/views/business/services/index.php';
-    // }
-
-    // public function servicesCreate()
-    // {
-    //     die('Estoy aquí y no debería');
-
-    //     // 1. Cargamos el perfil del comercio
-    //     $business = $this->requireBusinessProfile();
-
-    //     // 2. Extraemos el ID de la categoría principal
-    //     $comercio_categoria_id = $business['id_categoria'];
-
-    //     // 3. Traemos SOLO las subcategorías de tipo 'servicio' para este comercio
-    //     $cats = \App\Models\Category::getChildrenByParentAndType($comercio_categoria_id, 'servicio');
-
-    //     // 4. Cargamos la vista del formulario de servicios
-    //     require_once ROOT_DIR . '/resources/views/business/services/form.php';
-    // }
-
-    // public function servicesStore()
-    // {
-    //     $business = $this->requireBusinessProfile();
-
-    //     $required = ['nombre', 'descripcion', 'duracion', 'precio'];
-    //     foreach ($required as $field) {
-    //         if (empty($_POST[$field] ?? null)) {
-    //             Session::setFlash('error', 'Campo obligatorio faltante: ' . ucfirst($field));
-    //             header('Location: ' . BASE_URL . '/business/dashboard/services/create');
-    //             exit;
-    //         }
-    //     }
-
-    //     // 🔥 SOLUCIÓN AL ERROR 1366: Forzamos null real si llega un string vacío
-    //     $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
-
-    //     // 📷 PROCESAR IMAGEN (Nuevo)
-    //     $imagen_nombre = null;
-    //     if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
-    //         $fileTmpPath = $_FILES['imagen']['tmp_name'];
-    //         $fileName = $_FILES['imagen']['name'];
-    //         $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-
-    //         $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    //         if (in_array($fileExtension, $allowedExtensions)) {
-    //             $uploadDir = ROOT_DIR . '/public/img/services/';
-    //             // Si la carpeta no existe, la creamos
-    //             if (!is_dir($uploadDir)) {
-    //                 mkdir($uploadDir, 0755, true);
-    //             }
-    //             // Generamos un nombre único para evitar duplicados
-    //             $imagen_nombre = uniqid('srv_', true) . '.' . $fileExtension;
-    //             move_uploaded_file($fileTmpPath, $uploadDir . $imagen_nombre);
-    //         }
-    //     }
-
-    //     $data = [
-    //         'business_id' => $business['id'],
-    //         'category_id' => $category_id, // Guardado seguro
-    //         'nombre' => trim($_POST['nombre']),
-    //         'descripcion' => trim($_POST['descripcion'] ?? ''),
-    //         'duracion' => intval($_POST['duracion'] ?? 0),
-    //         'precio' => floatval($_POST['precio'] ?? 0),
-    //         'activo' => isset($_POST['activo']) ? 1 : 0,
-    //         'imagen' => $imagen_nombre // Guardamos el nombre en la BD
-    //     ];
-
-    //     try {
-    //         \App\Models\Service::create($data);
-    //         Session::setFlash('success', 'Servicio creado exitosamente.');
-    //         header('Location: ' . BASE_URL . '/business/dashboard/services');
-    //         exit;
-    //     } catch (\Throwable $e) {
-    //         // Si la base de datos falla, limpiamos la imagen física que acabamos de subir
-    //         if ($imagen_nombre && file_exists(ROOT_DIR . '/public/img/services/' . $imagen_nombre)) {
-    //             @unlink(ROOT_DIR . '/public/img/services/' . $imagen_nombre);
-    //         }
-    //         Session::setFlash('error', 'Error al crear el servicio: ' . $e->getMessage());
-    //         header('Location: ' . BASE_URL . '/business/dashboard/services/create');
-    //         exit;
-    //     }
-    // }
-
-    // public function servicesEdit($id)
-    // {
-    //     $business = $this->requireBusinessProfile();
-    //     $service = \App\Models\Service::findById($id);
-
-    //     if (!$service || $service->business_id != $business['id']) {
-    //         Session::setFlash('error', 'Servicio no encontrado.');
-    //         header('Location: ' . BASE_URL . '/business/dashboard/services');
-    //         exit;
-    //     }
-
-    //     // 🌟 CAMBIO AQUÍ: Filtramos dinámicamente usando el id_categoria del comercio
-    //     $cats = \App\Models\Category::getChildrenByParentAndType($business['id_categoria'], 'servicio');
-
-    //     require_once ROOT_DIR . '/resources/views/business/services/form.php';
-    // }
-
-    // public function servicesUpdate($id)
-    // {
-    //     $business = $this->requireBusinessProfile();
-    //     $service = \App\Models\Service::findById($id);
-
-    //     if (!$service || $service->business_id != $business['id']) {
-    //         Session::setFlash('error', 'Servicio no encontrado.');
-    //         header('Location: ' . BASE_URL . '/business/dashboard/services');
-    //         exit;
-    //     }
-
-    //     $required = ['nombre', 'descripcion', 'duracion', 'precio'];
-    //     foreach ($required as $field) {
-    //         if (empty($_POST[$field] ?? null)) {
-    //             Session::setFlash('error', 'Campo obligatorio faltante: ' . ucfirst($field));
-    //             header('Location: ' . BASE_URL . '/business/dashboard/services/' . $id . '/edit');
-    //             exit;
-    //         }
-    //     }
-
-    //     // 🔥 SOLUCIÓN AL ERROR 1366: Mismo tratamiento para la edición
-    //     $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
-
-    //     // 📷 PROCESAR NUEVA IMAGEN EN EDICIÓN (Nuevo)
-    //     $imagen_nombre = $service->imagen; // Mantenemos la actual por defecto
-    //     if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
-    //         $fileTmpPath = $_FILES['imagen']['tmp_name'];
-    //         $fileName = $_FILES['imagen']['name'];
-    //         $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-
-    //         $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    //         if (in_array($fileExtension, $allowedExtensions)) {
-    //             $uploadDir = ROOT_DIR . '/public/img/services/';
-
-    //             // Si ya tenía una foto vieja en el disco, la borramos para no acumular basura
-    //             if (!empty($service->imagen) && file_exists($uploadDir . $service->imagen)) {
-    //                 @unlink($uploadDir . $service->imagen);
-    //             }
-
-    //             $imagen_nombre = uniqid('srv_', true) . '.' . $fileExtension;
-    //             move_uploaded_file($fileTmpPath, $uploadDir . $imagen_nombre);
-    //         }
-    //     }
-
-    //     $data = [
-    //         'category_id' => $category_id,
-    //         'nombre' => trim($_POST['nombre']),
-    //         'descripcion' => trim($_POST['descripcion']),
-    //         'duracion' => intval($_POST['duracion']),
-    //         'precio' => floatval($_POST['precio']),
-    //         'activo' => isset($_POST['activo']) ? 1 : 0,
-    //         'imagen' => $imagen_nombre // Actualizamos el registro de la imagen
-    //     ];
-
-    //     try {
-    //         \App\Models\Service::update($id, $data);
-    //         Session::setFlash('success', 'Servicio actualizado.');
-    //         header('Location: ' . BASE_URL . '/business/dashboard/services');
-    //         exit;
-    //     } catch (\Throwable $e) {
-    //         Session::setFlash('error', 'Error al actualizar el servicio: ' . $e->getMessage());
-    //         header('Location: ' . BASE_URL . '/business/dashboard/services/' . $id . '/edit');
-    //         exit;
-    //     }
-    // }
-
-    // public function servicesDelete($id)
-    // {
-    //     $business = $this->requireBusinessProfile();
-    //     $service = \App\Models\Service::findById($id);
-
-    //     if (!$service || $service->business_id != $business['id']) {
-    //         Session::setFlash('error', 'Servicio no encontrado.');
-    //         header('Location: ' . BASE_URL . '/business/dashboard/services');
-    //         exit;
-    //     }
-
-    //     try {
-    //         // 📷 LIMPIEZA DE DISCO AL ELIMINAR (Nuevo)
-    //         if (!empty($service->imagen)) {
-    //             $filePatch = ROOT_DIR . '/public/img/services/' . $service->imagen;
-    //             if (file_exists($filePatch)) {
-    //                 @unlink($filePatch);
-    //             }
-    //         }
-
-    //         \App\Models\Service::delete($id);
-    //         Session::setFlash('success', 'Servicio eliminado.');
-    //     } catch (\Throwable $e) {
-    //         Session::setFlash('error', 'Error al eliminar: ' . $e->getMessage());
-    //     }
-    //     header('Location: ' . BASE_URL . '/business/dashboard/services');
-    //     exit;
-    // }
 
     // ---------------------------------------------------------------------
     // GESTIÓN DE HORARIOS

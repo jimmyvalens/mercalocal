@@ -6,10 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mercalocal</title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/css/style.css">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/css/cart_style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- SweetAlert2 for nicer alerts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 </head>
 
 <body class="font-sans bg-background text-secondary min-h-screen flex flex-col min-w-0">
@@ -185,7 +187,7 @@
                 title: isCartAddition ? '' : <?= json_encode(ucfirst($flashType ?: '')) ?>,
                 // Decodificamos las entidades HTML antes de pasarlo a JSON
                 text: <?= json_encode(html_entity_decode($flashMsg, ENT_QUOTES, 'UTF-8')) ?>,
-                timer: isCartAddition ? 3000 : 4000,
+                timer: isCartAddition ? 2000 : 3000,
                 timerProgressBar: true,
                 showConfirmButton: false,
                 customClass: {

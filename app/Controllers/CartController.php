@@ -4,11 +4,8 @@ namespace App\Controllers;
 
 use App\Core\Session;
 use App\Core\Database;
-use App\Core\Mailer;
 use App\Models\User;
-use App\Models\Business;
 use App\Models\Product;
-use PDO;
 
 /**
  * Controlador del Carrito de Compras
@@ -77,6 +74,7 @@ class CartController
                 'precio' => $product->precio,
                 'cantidad' => $cantidad,
                 'business_id' => $product->business_id,
+                'imagen' => $product->imagen
             ];
         }
 
@@ -174,7 +172,7 @@ class CartController
 
     /**
      * Redirige al flujo intermedio de simulación de pasarela de pago (POST /checkout).
-     * * @return void
+     * @return void
      */
     public function checkout()
     {
@@ -190,13 +188,17 @@ class CartController
             exit;
         }
 
+        // 🌟 LA CORRECCIÓN AQUÍ: Capturamos el POST del carrito ANTES de la redirección
+        $deliveryMethod = $_POST['delivery_method'] ?? 'domicilio';
+        Session::set('delivery_method', $deliveryMethod);
+
         header('Location: ' . BASE_URL . '/checkout/simulation');
         exit;
     }
 
     /**
      * Renderiza la interfaz visual de la pasarela de pago simulada.
-     * * @return void
+     * @return void
      */
     public function showSimulation()
     {
@@ -204,6 +206,9 @@ class CartController
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
+
+        // 🌟 CORRECCIÓN AQUÍ: Eliminamos la línea del $_POST para no sobreescribir la sesión.
+        // El dato ya está guardado de forma segura en la sesión gracias al método checkout().
 
         $cart = Session::get('cart', []);
         $total = array_sum(array_map(fn($i) => $i['precio'] * $i['cantidad'], $cart));
@@ -223,6 +228,7 @@ class CartController
      */
     public function confirmCheckout()
     {
+
         if (!Session::get('user_id')) {
             header('Location: ' . BASE_URL . '/login');
             exit;
@@ -234,13 +240,16 @@ class CartController
             exit;
         }
 
+        // 🌟 CAPTURAMOS EL MÉTODO DE ENTREGA SELECCIONADO POR EL USUARIO
+        $deliveryMethod = Session::get('delivery_method', 'domicilio');
+
         $db = Database::getInstance()->getConnection();
         $total = array_sum(array_map(fn($i) => $i['precio'] * $i['cantidad'], $cart));
 
         try {
             $db->beginTransaction();
 
-            // Extracción de la dirección del comprador de la tabla 'user' (Opción 1)
+            // Extracción de la dirección del comprador de la tabla 'user'
             $userRow = User::findById(Session::get('user_id'));
             $direccionTexto = $userRow->direccion ?? 'Dirección no especificada';
 
@@ -249,9 +258,9 @@ class CartController
             $stmtNewAddr->execute([$direccionTexto, '-', '-', 'Villafranca de los Barros', 'Badajoz']);
             $addressId = $db->lastInsertId();
 
-            // Registro maestro del pedido
-            $stmt = $db->prepare('INSERT INTO purchase (user_id, address_id, total, estado) VALUES (?, ?, ?, ?)');
-            $stmt->execute([Session::get('user_id'), $addressId, $total, 'PENDIENTE']);
+            // 🌟 ACTUALIZADO: Añadimos delivery_method al registro maestro del pedido
+            $stmt = $db->prepare('INSERT INTO purchase (user_id, address_id, total, estado, delivery_method) VALUES (?, ?, ?, ?, ?)');
+            $stmt->execute([Session::get('user_id'), $addressId, $total, 'PENDIENTE', $deliveryMethod]);
             $purchaseId = (int)$db->lastInsertId();
 
             // Procesamiento síncrono de líneas de pedido y actualización de inventario
@@ -275,32 +284,6 @@ class CartController
 
             $db->commit();
             Session::set('cart', []);
-
-            /* * =================================================================
-             * BLOQUE DE NOTIFICACIONES POR EMAIL (Fase de producción 2.0)
-             * =================================================================
-             * Desactivado temporalmente en entorno de pruebas local para evitar 
-             * latencias de red y dependencias externas de servidores SMTP.
-             * * $userRow = User::findById(Session::get('user_id'));
-             * if ($userRow) {
-             * $userArr = ['nombre' => $userRow->nombre, 'email' => $userRow->email];
-             * Mailer::sendOrderToClient($userArr, $itemsForEmail, $total, $purchaseId);
-             * }
-             * * foreach (array_unique(array_column($cart, 'business_id')) as $bid) {
-             * $biz = Business::findById($bid);
-             * if ($biz) {
-             * $bizItems = array_filter($cart, fn($i) => $i['business_id'] === $bid);
-             * $bizItems = array_map(fn($i) => [
-             * 'nombre' => $i['nombre'],
-             * 'cantidad' => $i['cantidad'],
-             * 'precio_unitario' => $i['precio'],
-             * ], $bizItems);
-             * $bizTotal = array_sum(array_map(fn($i) => $i['precio_unitario'] * $i['cantidad'], $bizItems));
-             * Mailer::sendOrderToBusiness($biz->email, $biz->nombre, array_values($bizItems), $bizTotal, $purchaseId);
-             * }
-             * }
-             */
-
             Session::setFlash('success', "¡Pago realizado con éxito! Tu pedido #{$purchaseId} está en marcha.");
             header('Location: ' . BASE_URL . '/orders');
             exit;

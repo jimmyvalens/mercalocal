@@ -13,7 +13,7 @@
                     <!-- Eyebrow badge -->
                     <div class="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-gray-300 text-xs font-semibold px-3 py-1 rounded-full mb-6 sm:mx-auto lg:mx-0">
                         <span class="w-2 h-2 bg-accent rounded-full animate-pulse"></span>
-                        Comercio local online · España
+                        Comercio local online · Villafranca de los Barros
                     </div>
 
                     <h1 class="text-4xl tracking-tight font-black text-white sm:text-5xl md:text-6xl">
@@ -21,7 +21,7 @@
                         <span class="block text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">tu comercio local</span>
                     </h1>
                     <p class="mt-4 text-base text-gray-400 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0 font-normal leading-relaxed">
-                        Encuentra los mejores productos frescos, servicios de calidad y tiendas únicas cerca de ti. Haz tu pedido o reserva online y recoge sin esperas.
+                        Encuentra los mejores productos y comercios cerca de ti. Haz tu pedido y elige entre recibirlo en tu domicilio o recogerlo en el local sin esperas.
                     </p>
                     <div class="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:justify-center lg:justify-start">
                         <a href="/businesses"
@@ -84,18 +84,18 @@
 
         <a href="/businesses?categoria=1"
             class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
-            <div class="w-12 h-12 bg-green-50 text-green-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-                <i class="fa-solid fa-apple-whole text-xl"></i>
+            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                <i class="fa-solid fa-basket-shopping text-xl"></i>
             </div>
-            <span class="font-semibold text-gray-700 text-sm group-hover:text-primary transition-colors">Alimentación</span>
+            <span class="font-semibold text-gray-700 text-xs md:text-sm group-hover:text-primary transition-colors">Alimentación y Compra Diaria</span>
         </a>
 
         <a href="/businesses?categoria=2"
             class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
-            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-                <i class="fa-solid fa-spa text-xl"></i>
+            <div class="w-12 h-12 bg-orange-50 text-orange-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                <i class="fa-solid fa-utensils text-xl"></i>
             </div>
-            <span class="font-semibold text-gray-700 text-sm group-hover:text-primary transition-colors">Salud y Belleza</span>
+            <span class="font-semibold text-gray-700 text-xs md:text-sm group-hover:text-primary transition-colors">Restauración y Comida Prepareda</span>
         </a>
 
         <a href="/businesses?categoria=3"
@@ -103,24 +103,25 @@
             <div class="w-12 h-12 bg-pink-50 text-pink-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
                 <i class="fa-solid fa-shirt text-xl"></i>
             </div>
-            <span class="font-semibold text-gray-700 text-sm group-hover:text-primary transition-colors">Ropa</span>
+            <span class="font-semibold text-gray-700 text-xs md:text-sm group-hover:text-primary transition-colors">Moda, Calzado y Complementos</span>
         </a>
 
         <a href="/businesses?categoria=4"
             class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
-            <div class="w-12 h-12 bg-yellow-50 text-yellow-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-                <i class="fa-solid fa-hammer text-xl"></i>
+            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                <i class="fa-solid fa-gift text-xl"></i>
             </div>
-            <span class="font-semibold text-gray-700 text-sm group-hover:text-primary transition-colors">Hogar y Taller</span>
+            <span class="font-semibold text-gray-700 text-xs md:text-sm group-hover:text-primary transition-colors">Hogar, Ocio y Regalos</span>
         </a>
 
         <a href="/businesses?categoria=5"
             class="gh-card group p-5 text-center hover:border-primary transition-all flex flex-col items-center gap-3">
-            <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-                <i class="fa-solid fa-briefcase text-xl"></i>
+            <div class="w-12 h-12 bg-teal-50 text-teal-600 rounded-lg flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                <i class="fa-solid fa-heart-pulse text-xl"></i>
             </div>
-            <span class="font-semibold text-gray-700 text-sm group-hover:text-primary transition-colors">Servicios</span>
+            <span class="font-semibold text-gray-700 text-xs md:text-sm group-hover:text-primary transition-colors">Cuidado Personal, Salud y Bienestar</span>
         </a>
+
     </div>
 </div>
 

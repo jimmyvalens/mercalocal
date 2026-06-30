@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Core/ExceptionHandler.php — Manejador Global de Excepciones
+// app/Core/ExceptionHandler.php — Manejador Global de Excepciones
 // Captura errores y excepciones no controladas, los registra
 // en un log y muestra una vista amigable de error 500.
 // =========================================================
@@ -14,13 +14,13 @@ class ExceptionHandler
     public static function register()
     {
         error_reporting(E_ALL);
-        
+
         // Manejador de excepciones
         set_exception_handler([self::class, 'handleException']);
-        
+
         // Manejador de errores (convierte errores de PHP a excepciones)
         set_error_handler([self::class, 'handleError']);
-        
+
         // Manejador de apagado para errores fatales
         register_shutdown_function([self::class, 'handleShutdown']);
     }
@@ -38,7 +38,7 @@ class ExceptionHandler
         if ($code != 404) {
             $code = 500;
         }
-        
+
         http_response_code($code);
 
         // Si la aplicación está en modo DEBUG, mostrar detalles
@@ -56,7 +56,7 @@ class ExceptionHandler
             if (!is_dir($logDir)) {
                 mkdir($logDir, 0755, true);
             }
-            
+
             $logMessage = "[" . date('Y-m-d H:i:s') . "] " . get_class($exception) . ": " . $exception->getMessage() . " in " . $exception->getFile() . " on line " . $exception->getLine() . PHP_EOL;
             error_log($logMessage, 3, $logFile);
 

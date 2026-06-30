@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// src/Core/Mailer.php — Sistema de notificaciones por email
+// app/Core/Mailer.php — Sistema de notificaciones por email
 // Encapsula PHPMailer para enviar emails transaccionales
 // con diseño de marca de Mercalocal.
 //
@@ -67,8 +67,7 @@ class Mailer
             $mail->Body = self::wrap($subject, $body); // Envolver en plantilla de marca
             $mail->send();
             return true;
-        }
-        catch (Exception $e) {
+        } catch (Exception $e) {
             // Registrar el error en el log de PHP sin interrumpir la petición
             error_log('[Mailer] Error al enviar email: ' . $e->getMessage());
             return false;
@@ -242,8 +241,7 @@ class Mailer
                 </p>
             ";
             $subject = '🏪 ¡Bienvenido a Mercalocal! Configura tu perfil de comercio';
-        }
-        else {
+        } else {
             // Email para clientes: les invita a explorar el catálogo
             $body = "
                 <p style='font-size:1rem;'>Hola, <strong>{$nombre}</strong> 👋</p>
