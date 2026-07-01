@@ -88,7 +88,3 @@ Asegúrate de apuntar la raíz (*DocumentRoot*) de tu servidor web (Apache/Nginx
 
 * **Jimmy** - *Desarrollador e Idea Original* - Alumno del ciclo superior DAW en I.E.S. Albarregas, Mérida-España.
 
-```
-¡A por esa web del cliente y a cerrar el TFG con nota! Si necesitas modificar alguna sección del README, me avisas.
-
-```
