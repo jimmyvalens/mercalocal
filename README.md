@@ -1,6 +1,6 @@
 # Mercalocal 🏪
 
-[![PHP Version](https://img.shields.io/badge/php-%5E8.1-777bb4.svg)](https://www.php.net/)
+[![PHP Version](https://img.shields.io/badge/php-%5E8.3-777bb4.svg)](https://www.php.net/)
 [![MySQL](https://img.shields.io/badge/mysql-%2300f.svg?style=flat&logo=mysql&logoColor=white)](https://www.mysql.com/)
 [![Tailwind CSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
