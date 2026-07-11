@@ -1,7 +1,16 @@
 <?php
-// =========================================================
-// app/Models/Schedule.php — Modelo de horarios de apertura
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Models/Schedule.php — Modelo de horarios de apertura
+ *
+ * Representa y gestiona los horarios de apertura de un negocio:
+ * · Obtener horarios por negocio
+ * · Crear un nuevo registro de horario
+ * · Comprobar existencia y eliminar registros
+ * =========================================================
+ */
+
 namespace App\Models;
 
 use App\Core\Database;
@@ -9,11 +18,11 @@ use PDO;
 
 class Schedule
 {
-    public $id;
-    public $business_id;
-    public $dia_semana; // 0=domingo..6=sabado
-    public $hora_apertura; // TIME
-    public $hora_cierre;   // TIME
+    public int $id;
+    public int $business_id;
+    public int $dia_semana; // 0=domingo..6=sabado
+    public string $hora_apertura; // TIME
+    public string $hora_cierre;   // TIME
 
     public static function getByBusiness(int $businessId): array
     {
@@ -37,9 +46,7 @@ class Schedule
         return (int)$db->lastInsertId();
     }
 
-    // En App\Models\Schedule.php
-
-    public static function exists($business_id, $dia_semana, $hora_apertura, $hora_cierre)
+    public static function exists(int $business_id, int $dia_semana, string $hora_apertura, string $hora_cierre): bool
     {
         $db = Database::getInstance()->getConnection();
 
@@ -57,7 +64,6 @@ class Schedule
             ':hora_cierre'   => $hora_cierre
         ]);
 
-        // Si el conteo es mayor que 0, es que ya existe
         return $stmt->fetchColumn() > 0;
     }
 

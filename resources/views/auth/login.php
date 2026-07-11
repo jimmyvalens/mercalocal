@@ -34,7 +34,7 @@
                 <input id="password" name="password" type="password" required class="appearance-none rounded-xl relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-primary bg-gray-50" placeholder="••••••••">
             </div>
             <div>
-                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-primary hover:bg-orange-600 transition-all cursor-pointer">Entrar</button>
+                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-primary hover:bg-orange-600 transition-all cursor-pointer">Iniciar Sesión</button>
             </div>
         </form>
         <div class="flex items-center justify-between mt-4">

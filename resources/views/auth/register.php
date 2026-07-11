@@ -35,7 +35,6 @@ $ic = function (string $field) use ($errors) {
                 <img src="<?= $logoSrc ?>" alt="Mercalocal" style="height:56px; width:auto;">
             </div>
             <h2 class="text-2xl font-extrabold" style="color:var(--ml-text);">Crea tu cuenta gratis</h2>
-            <p class="text-sm mt-1" style="color:var(--ml-text-muted);">Unete para comprar, reservar y apoyar al comercio local</p>
         </div>
 
         <!-- Formulario -->
@@ -102,8 +101,8 @@ $ic = function (string $field) use ($errors) {
                 <label for="rol" class="block text-sm font-bold mb-1" style="color:var(--ml-text);">Tipo de cuenta</label>
                 <select id="rol" name="rol"
                     class="w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-50 text-gray-900 focus:outline-none cursor-pointer text-sm">
-                    <option value="USER" <?= ($old['rol'] ?? 'USER') === 'USER'     ? 'selected' : '' ?>>Soy Cliente (Comprar/Reservar)</option>
-                    <option value="BUSINESS" <?= ($old['rol'] ?? '')      === 'BUSINESS' ? 'selected' : '' ?>>Soy Comercio (Vender productos)</option>
+                    <option value="USER" <?= ($old['rol'] ?? 'USER') === 'USER'     ? 'selected' : '' ?>>Soy Cliente (Quiero comprar)</option>
+                    <option value="BUSINESS" <?= ($old['rol'] ?? '')      === 'BUSINESS' ? 'selected' : '' ?>>Soy Comercio (Quiero vender)</option>
                 </select>
             </div>
 

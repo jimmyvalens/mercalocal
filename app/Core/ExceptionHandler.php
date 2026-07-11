@@ -1,37 +1,56 @@
 <?php
-// =========================================================
-// app/Core/ExceptionHandler.php — Manejador Global de Excepciones
-// Captura errores y excepciones no controladas, los registra
-// en un log y muestra una vista amigable de error 500.
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Core/ExceptionHandler.php — Manejador Global de Excepciones
+ *
+ * Gestiona excepciones y errores no controlados:
+ * · Registra manejadores globales de errores y excepciones
+ * · Convierte errores de PHP en excepciones
+ * · Maneja el apagado para errores fatales
+ * =========================================================
+ */
+
 namespace App\Core;
 
 class ExceptionHandler
 {
     /**
      * Registra los manejadores globales.
+     *
+     * @return void
      */
     public static function register()
     {
         error_reporting(E_ALL);
 
-        // Manejador de excepciones
         set_exception_handler([self::class, 'handleException']);
-
-        // Manejador de errores (convierte errores de PHP a excepciones)
         set_error_handler([self::class, 'handleError']);
-
-        // Manejador de apagado para errores fatales
         register_shutdown_function([self::class, 'handleShutdown']);
     }
 
-    public static function handleError($level, $message, $file = '', $line = 0)
+    /**
+     * Convierte un error de PHP en una excepción.
+     *
+     * @param int $level
+     * @param string $message
+     * @param string $file
+     * @param int $line
+     * @return void
+     */
+    public static function handleError(int $level, string $message, string $file = '', int $line = 0): void
     {
         if (error_reporting() & $level) {
             throw new \ErrorException($message, 0, $level, $file, $line);
         }
     }
 
+    /**
+     * Procesa la excepción y muestra la respuesta adecuada.
+     *
+     * @param \Throwable $exception
+     * @return void
+     */
     public static function handleException(\Throwable $exception)
     {
         $code = $exception->getCode();
@@ -41,7 +60,6 @@ class ExceptionHandler
 
         http_response_code($code);
 
-        // Si la aplicación está en modo DEBUG, mostrar detalles
         if (defined('APP_DEBUG') && APP_DEBUG) {
             echo "<h1>Excepción de la aplicación</h1>";
             echo "<p><strong>Tipo:</strong> " . get_class($exception) . "</p>";
@@ -50,7 +68,6 @@ class ExceptionHandler
             echo "<h2>Stack trace:</h2>";
             echo "<pre>" . $exception->getTraceAsString() . "</pre>";
         } else {
-            // Modo Producción: Mostrar vista genérica y registrar log
             $logFile = ROOT_DIR . '/logs/error.log';
             $logDir = dirname($logFile);
             if (!is_dir($logDir)) {
@@ -61,7 +78,6 @@ class ExceptionHandler
             error_log($logMessage, 3, $logFile);
 
             if ($code == 404) {
-                // TODO: create 404 view
                 echo "<h1>Página no encontrada (404)</h1>";
             } else {
                 $errorView = ROOT_DIR . '/resources/views/errors/500.php';
@@ -75,6 +91,11 @@ class ExceptionHandler
         exit;
     }
 
+    /**
+     * Maneja errores fatales al apagar el script.
+     *
+     * @return void
+     */
     public static function handleShutdown()
     {
         $error = error_get_last();

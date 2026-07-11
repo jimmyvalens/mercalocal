@@ -1,11 +1,16 @@
 <?php
-// =========================================================
-// app/Models/Business.php — Modelo de comercio
-// Representa un negocio registrado en la plataforma.
-// Gestiona la lectura de datos de la tabla `business`
-// y provee métodos para obtener sus productos, servicios
-// y horarios de apertura relacionados.
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Models/Business.php — Modelo de comercio
+ *
+ * Representa un negocio registrado en la plataforma.
+ * · Gestiona la lectura de datos del comercio
+ * · Proporciona métodos para productos y horarios
+ * · Soporta búsqueda, filtrado y creación
+ * =========================================================
+ */
+
 namespace App\Models;
 
 use App\Core\Database;
@@ -14,30 +19,29 @@ use PDO;
 class Business
 {
     // Propiedades que corresponden a las columnas de la tabla `business`
-    public $id;
-    public $user_id; // ID del usuario propietario del comercio
-    public $nombre;
-    public $descripcion;
-    public $telefono;
-    public $email;
-    public $web;
-    public $activo; // 1 = visible en el catálogo, 0 = oculto
-    public $logo_path;
-    public $hero_path;
-    public $created_at;
-    public $updated_at;
-    public $categorias; // Campo calculado: categorías concatenadas con GROUP_CONCAT
-    public $id_categoria;
+    public int $id;
+    public int $user_id; // ID del usuario propietario del comercio
+    public string $nombre;
+    public ?string $descripcion;
+    public ?string $telefono;
+    public ?string $email;
+    public ?string $web;
+    public int $activo; // 1 = visible en el catálogo, 0 = oculto
+    public ?string $logo_path;
+    public ?string $hero_path;
+    public ?string $created_at;
+    public ?string $updated_at;
+    public ?string $categorias; // Campo calculado: categorías concatenadas con GROUP_CONCAT
+    public ?int $id_categoria;
 
     /**
-     * Devuelve todos los comercios activos.
-     * Admite búsqueda por nombre y filtrado por categoría.
+     * Obtiene todos los comercios activos.
      *
-     * @param  string      $search     Texto a buscar en el nombre del comercio
-     * @param  int|null    $categoryId ID de categoría para filtrar (opcional)
-     * @param  int         $limit      Número máximo de resultados (paginación)
-     * @param  int         $offset     Desplazamiento para paginación
-     * @return Business[]              Array de objetos Business
+     * @param string $search
+     * @param int|null $categoryId
+     * @param int|null $limit
+     * @param int $offset
+     * @return Business[]
      */
     public static function getAll($search = '', $categoryId = null, $limit = null, $offset = 0)
     {
@@ -50,7 +54,6 @@ class Business
 
         $db = Database::getInstance()->getConnection();
 
-        // Consulta base corregida: Trae el comercio y SOLO su categoría principal
         $sql = "SELECT b.*, c.nombre as categorias
         FROM business b
         LEFT JOIN category c ON b.id_categoria = c.id
@@ -58,22 +61,18 @@ class Business
 
         $params = [];
 
-        // Filtro de búsqueda por nombre (búsqueda parcial con LIKE)
         if (!empty($search)) {
             $sql .= " AND b.nombre LIKE ?";
             $params[] = '%' . $search . '%';
         }
 
-        // Filtro por categoría (restringido únicamente a productos)
-        // Filtro por categoría del comercio (b.id_categoria)
         if (!empty($categoryId)) {
             $sql .= " AND b.id_categoria = ?";
-            $params[] = (int)$categoryId; // Forzamos a entero por seguridad
+            $params[] = (int)$categoryId;
         }
 
-        $sql .= " GROUP BY b.id"; // Agrupar para que GROUP_CONCAT funcione correctamente
+        $sql .= " GROUP BY b.id";
 
-        // Paginación
         if ($limit !== null) {
             $sql .= " LIMIT ? OFFSET ?";
             $params[] = $limit;
@@ -84,24 +83,22 @@ class Business
         $stmt->execute($params);
         $result = $stmt->fetchAll(PDO::FETCH_CLASS, self::class);
 
-        // Cache por 30 minutos
         \App\Core\Cache::set($cacheKey, $result, 1800);
 
         return $result;
     }
 
     /**
-     * Cuenta el total de comercios activos según filtros.
+     * Cuenta los comercios activos según filtros.
      *
-     * @param  string      $search     Texto a buscar
-     * @param  int|null    $categoryId ID de categoría
-     * @return int                     Total de comercios
+     * @param string $search
+     * @param int|null $categoryId
+     * @return int
      */
     public static function countAll($search = '', $categoryId = null)
     {
         $db = Database::getInstance()->getConnection();
 
-        // Consulta base limpia: solo cruzamos con productos físicos
         $sql = "SELECT COUNT(DISTINCT b.id) as total
                 FROM business b
                 LEFT JOIN product p ON b.id = p.business_id
@@ -109,14 +106,11 @@ class Business
 
         $params = [];
 
-        // Filtro por nombre del comercio
         if (!empty($search)) {
             $sql .= " AND b.nombre LIKE ?";
             $params[] = '%' . $search . '%';
         }
 
-        // Filtro por categoría (restringido únicamente a productos)
-        // Filtro por categoría del comercio (b.id_categoria)
         if (!empty($categoryId)) {
             $sql .= " AND b.id_categoria = ?";
             $params[] = (int)$categoryId;
@@ -131,8 +125,8 @@ class Business
     /**
      * Busca un comercio por su ID.
      *
-     * @param  int          $id ID del comercio
-     * @return Business|false   Objeto Business o false si no existe
+     * @param int $id
+     * @return Business|false
      */
     public static function findById($id)
     {
@@ -143,12 +137,10 @@ class Business
         return $stmt->fetch();
     }
 
-
     /**
-     * Devuelve todos los productos activos de este comercio
-     * junto con el nombre de su categoría.
+     * Obtiene los productos activos del comercio.
      *
-     * @return array Array asociativo con los productos
+     * @return array
      */
     public function getProducts()
     {
@@ -164,10 +156,9 @@ class Business
     }
 
     /**
-     * Devuelve los horarios de apertura del comercio
-     * ordenados por día de la semana y hora de apertura.
+     * Obtiene los horarios de apertura del comercio.
      *
-     * @return array Array con los horarios de la tabla `schedule`
+     * @return array
      */
     public function getSchedules()
     {
@@ -182,10 +173,10 @@ class Business
     }
 
     /**
-     * Crea un nuevo registro de comercio en la base de datos.
+     * Inserta un nuevo comercio en la base de datos.
      *
-     * @param  array $data Datos saneados del comercio
-     * @return int          ID del comercio recién insertado
+     * @param array $data
+     * @return int
      */
     public static function create($data)
     {
@@ -204,13 +195,11 @@ class Business
             $data['telefono'],
             $data['email'],
             $data['web'] ?? null,
-            $data['activo'] ?? 1, // No requiere aprobación previa de ADMIN
+            $data['activo'] ?? 1,
             $data['logo_path'] ?? null,
             $data['hero_path'] ?? null
         ]);
 
-        // Al crear o modificar comercios, es buena práctica limpiar la caché del catálogo
-        // para que el nuevo negocio aparezca inmediatamente a los clientes.
         \App\Core\Cache::clear();
 
         return (int)$db->lastInsertId();

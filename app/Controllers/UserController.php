@@ -1,10 +1,16 @@
 <?php
-// =========================================================
-// app/Controllers/UserController.php — Controlador del área de usuario
-// Gestiona las páginas privadas del cliente registrado:
-//   · Perfil personal
-//   · Historial de pedidos
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Controllers/UserController.php — Controlador del área de usuario
+ *
+ * Gestiona las páginas privadas del cliente registrado:
+ * · Perfil personal
+ * · Historial de pedidos
+ * · Notificaciones en tiempo real (SSE)
+ * =========================================================
+ */
+
 namespace App\Controllers;
 
 use App\Core\Session;
@@ -29,6 +35,8 @@ class UserController
 
     /**
      * Muestra el panel principal del usuario (GET /user/dashboard).
+     *
+     * @return void
      */
     public function dashboard()
     {
@@ -89,18 +97,15 @@ class UserController
         require_once ROOT_DIR . '/resources/views/user/dashboard.php';
     }
 
-    /**
-     * Muestra el perfil del usuario autenticado (GET /profile).
-     */
     public function profile()
     {
-        // Redirigir al login si el usuario no está autenticado
+
         if (!Session::get('user_id')) {
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
 
-        // Cargar los datos del usuario desde la BD
+
         $user = User::findById(Session::get('user_id'));
         if (!$user) {
             Session::destroy();
@@ -112,6 +117,8 @@ class UserController
 
     /**
      * Procesa la actualización del perfil (POST /user/profile/update).
+     *
+     * @return void
      */
     public function updateProfile()
     {
@@ -135,7 +142,6 @@ class UserController
                 'direccion' => trim($_POST['direccion'] ?? '')
             ];
 
-            // Handle image upload
             if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] !== UPLOAD_ERR_NO_FILE) {
                 error_log("Intentando subir imagen: " . $_FILES['imagen']['name'] . " (Size: " . $_FILES['imagen']['size'] . ", Error: " . $_FILES['imagen']['error'] . ")");
                 if ($_FILES['imagen']['error'] !== UPLOAD_ERR_OK) {
@@ -159,7 +165,7 @@ class UserController
                         error_log("Imagen movida correctamente a: " . $uploadDir . $newFileName);
                         $data['imagen'] = 'img/users/' . $newFileName;
 
-                        // Delete old image if exists and is not default
+
                         if ($user->imagen && file_exists(ROOT_DIR . '/public/' . $user->imagen) && strpos($user->imagen, 'default') === false) {
                             unlink(ROOT_DIR . '/public/' . $user->imagen);
                         }
@@ -206,7 +212,7 @@ class UserController
         $userId = Session::get('user_id');
         $db = Database::getInstance()->getConnection();
 
-        // ── 🌟 ACTUALIZADO: Añadimos p.delivery_method a la consulta SQL ──
+        // Añadimos p.delivery_method a la consulta SQL
         $stmt = $db->prepare(
             'SELECT p.id, p.total, p.estado, p.created_at, p.delivery_method 
          FROM purchase p
