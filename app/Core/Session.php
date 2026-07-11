@@ -1,17 +1,24 @@
 <?php
-// =========================================================
-// app/Core/Session.php — Gestión de la sesión de usuario
-// Centraliza todas las operaciones con $_SESSION para
-// facilitar el mantenimiento y evitar accesos directos
-// a la superglobal desde los controladores y vistas.
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Core/Session.php — Gestión de la sesión de usuario
+ *
+ * Centraliza la gestión de datos de sesión y seguridad CSRF:
+ * · Inicia, regenera y destruye sesiones
+ * · Maneja valores, flash messages y tokens CSRF
+ * · Proporciona utilidades para formularios y validación
+ * =========================================================
+ */
+
 namespace App\Core;
 
 class Session
 {
     /**
      * Inicia la sesión PHP si todavía no está iniciada.
-     * Se llama una sola vez desde public/index.php.
+     *
+     * @return void
      */
     public static function start()
     {
@@ -29,6 +36,8 @@ class Session
 
     /**
      * Regenera el identificador de sesión tras cambios de autenticación.
+     *
+     * @return void
      */
     public static function regenerate()
     {
@@ -41,28 +50,32 @@ class Session
      *
      * @param string $key   Nombre de la variable de sesión
      * @param mixed  $value Valor a guardar
+     * @return void
      */
-    public static function set($key, $value)
+    public static function set(string $key, $value)
     {
         $_SESSION[$key] = $value;
     }
 
     /**
      * Recupera un valor de la sesión.
-     * Devuelve $default si la clave no existe.
      *
      * @param string $key     Clave a buscar
      * @param mixed  $default Valor por defecto si la clave no existe
+     * @return mixed
      */
-    public static function get($key, $default = null)
+    public static function get(string $key, $default = null)
     {
         return $_SESSION[$key] ?? $default;
     }
 
     /**
      * Elimina una variable específica de la sesión.
+     *
+     * @param string $key
+     * @return void
      */
-    public static function remove($key)
+    public static function remove(string $key)
     {
         if (isset($_SESSION[$key])) {
             unset($_SESSION[$key]);
@@ -71,7 +84,8 @@ class Session
 
     /**
      * Destruye completamente la sesión actual.
-     * Se usa al hacer logout.
+     *
+     * @return void
      */
     public static function destroy()
     {
@@ -81,29 +95,29 @@ class Session
 
     /**
      * Guarda un mensaje flash (de un solo uso) en la sesión.
-     * Se usa para transmitir notificaciones entre redirecciones.
      *
-     * @param string $type    Tipo del mensaje: 'success', 'error' o 'info'
-     * @param string $message Texto del mensaje
+     * @param string $type
+     * @param string $message
+     * @return void
      */
     public static function setFlash($type, $message)
     {
         $_SESSION['flash'] = [
-            'type' => $type, // Determina el color del aviso en la vista
-            'message' => $message // Texto legible para el usuario
+            'type' => $type,
+            'message' => $message
         ];
     }
 
     /**
      * Recupera y elimina el mensaje flash de la sesión.
-     * Al ser de un solo uso, desaparece tras la primera lectura.
-     * Devuelve null si no hay ningún mensaje pendiente.
+     *
+     * @return array|null
      */
     public static function getFlash()
     {
         if (isset($_SESSION['flash'])) {
             $flash = $_SESSION['flash'];
-            unset($_SESSION['flash']); // Eliminar después de leer
+            unset($_SESSION['flash']);
             return $flash;
         }
         return null;
@@ -111,7 +125,8 @@ class Session
 
     /**
      * Genera (o devuelve) un token CSRF asociado a la sesión.
-     * Se reutiliza durante toda la sesión.
+     *
+     * @return string
      */
     public static function generateCsrfToken(): string
     {
@@ -123,6 +138,9 @@ class Session
 
     /**
      * Comprueba que el token recibido coincide con el almacenado en sesión.
+     *
+     * @param string $token
+     * @return bool
      */
     public static function validateCsrfToken(string $token): bool
     {
@@ -134,6 +152,8 @@ class Session
 
     /**
      * Devuelve el campo oculto CSRF listo para incluir en formularios POST.
+     *
+     * @return string
      */
     public static function csrfField(): string
     {

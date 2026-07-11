@@ -1,26 +1,46 @@
 <?php
-// app/Core/Cache.php
-// Clase para caché usando Redis o fallback a array
+
+/**
+ * =========================================================
+ * app/Core/Cache.php — Clase de caché
+ *
+ * Provee almacenamiento en Redis con respaldo en memoria local:
+ * · Inicializa la conexión Redis si está disponible
+ * · Recupera, guarda y elimina entradas de caché
+ * · Borra toda la caché en Redis o en el fallback de array
+ * =========================================================
+ */
+
 namespace App\Core;
 
 use Predis\Client;
 
 class Cache
 {
-    private static $redis = null;
-    private static $fallback = [];
+    private static ?Client $redis = null;
+    private static array $fallback = [];
 
+    /**
+     * Inicializa el cliente Redis.
+     *
+     * @return void
+     */
     public static function init()
     {
         try {
             self::$redis = new Client();
             self::$redis->connect();
-        } catch (\Exception $e) {
-            // Fallback a array si Redis no está disponible
+        } catch (\Exception) {
             self::$redis = null;
         }
     }
 
+    /**
+     * Obtiene un valor de caché.
+     *
+     * @param string $key
+     * @return mixed
+     */
     public static function get($key)
     {
         if (self::$redis) {
@@ -30,6 +50,14 @@ class Cache
         return self::$fallback[$key] ?? null;
     }
 
+    /**
+     * Guarda un valor en caché.
+     *
+     * @param string $key
+     * @param mixed $value
+     * @param int $ttl
+     * @return void
+     */
     public static function set($key, $value, $ttl = 3600)
     {
         if (self::$redis) {
@@ -39,6 +67,12 @@ class Cache
         }
     }
 
+    /**
+     * Elimina una entrada de caché.
+     *
+     * @param string $key
+     * @return void
+     */
     public static function delete($key)
     {
         if (self::$redis) {
@@ -48,6 +82,11 @@ class Cache
         }
     }
 
+    /**
+     * Limpia toda la caché.
+     *
+     * @return void
+     */
     public static function clear()
     {
         if (self::$redis) {

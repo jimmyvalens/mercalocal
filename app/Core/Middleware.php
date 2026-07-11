@@ -1,18 +1,28 @@
 <?php
-// =========================================================
-// app/Core/Middleware.php — Gestión de permisos y acceso
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Core/Middleware.php — Gestión de permisos y acceso
+ *
+ * Controla permisos de usuarios y acceso a rutas protegidas:
+ * · Valida sesiones y roles antes de permitir acceso
+ * · Redirige según estado de configuración de negocio
+ * · Impide acceso a páginas de invitados si hay sesión activa
+ * =========================================================
+ */
+
 namespace App\Core;
 
 class Middleware
 {
     /**
      * Verifica que el usuario haya iniciado sesión.
+     *
+     * @return void
      */
     public static function requireAuth()
     {
         if (!Session::get('user_id')) {
-            // Session::setFlash('error', 'Debes iniciar sesión para acceder.');
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
@@ -20,7 +30,9 @@ class Middleware
 
     /**
      * Verifica que el usuario tenga un rol específico.
+     *
      * @param string|array $roles Rol requerido ('ADMIN', 'BUSINESS', 'USER')
+     * @return void
      */
     public static function requireRole($roles)
     {
@@ -30,7 +42,6 @@ class Middleware
         $roles = (array)$roles;
 
         if (!in_array($userRole, $roles, true)) {
-            // Session::setFlash('error', 'Acceso denegado. No tienes permisos para ver esta página.');
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
@@ -38,6 +49,8 @@ class Middleware
 
     /**
      * Verifica que el usuario sea un invitado (no logueado).
+     *
+     * @return void
      */
     public static function requireGuest()
     {
@@ -48,15 +61,14 @@ class Middleware
     }
 
     /**
-     * NUEVO: Verifica que el comercio HAYA COMPLETADO el setup inicial.
-     * Se usará en: dashboard, productos, servicios, horarios, pedidos...
+     * Verifica que el comercio HAYA COMPLETADO el setup inicial.
+     *
+     * @return void
      */
     public static function requireBusinessSetup()
     {
-        // Primero nos aseguramos de que al menos sea un usuario tipo BUSINESS
         self::requireRole('BUSINESS');
 
-        // Si no tiene un ID de comercio asignado en la sesión, al formulario de cabeza
         if (!Session::get('business_id')) {
             header('Location: ' . BASE_URL . '/business/setup');
             exit;
@@ -64,14 +76,14 @@ class Middleware
     }
 
     /**
-     * NUEVO: Verifica que el comercio TENGA PENDIENTE el setup inicial.
-     * Se usará ÚNICAMENTE en la ruta y vista de 'views/business/setup.php'.
+     * Verifica que el comercio TENGA PENDIENTE el setup inicial.
+     *
+     * @return void
      */
     public static function requireBusinessPending()
     {
         self::requireRole('BUSINESS');
 
-        // Si ya tiene un ID de comercio, no tiene sentido que vuelva a rellenar el setup
         if (Session::get('business_id')) {
             header('Location: ' . BASE_URL . '/business/dashboard');
             exit;

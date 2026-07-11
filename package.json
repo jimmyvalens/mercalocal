@@ -4,8 +4,9 @@
   "description": "Mercalocal con Tailwind",
   "main": "index.js",
   "scripts": {
-    "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/style.css -w"
-  },
+  "dev": "tailwindcss -i ./public/css/input.css -o ./public/css/style.css -w",
+  "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/style.css --minify"
+},
   "dependencies": {
     "@tailwindcss/cli": "^4.3.1"
   }

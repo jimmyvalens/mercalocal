@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * =========================================================
+ * app/Controllers/CartController.php — Controlador de carrito
+ *
+ * Gestiona el carrito de compras y la finalización de pedidos:
+ * · Añade, actualiza y elimina productos en sesión
+ * · Simula el flujo de pago antes de confirmar la compra
+ * · Registra el pedido y actualiza el stock en la base de datos
+ * =========================================================
+ */
+
 namespace App\Controllers;
 
 use App\Core\Session;
@@ -7,17 +18,12 @@ use App\Core\Database;
 use App\Models\User;
 use App\Models\Product;
 
-/**
- * Controlador del Carrito de Compras
- * * Gestiona de forma centralizada el ciclo de vida de una orden:
- * desde la persistencia temporal en sesión hasta la consolidación
- * transaccional en la base de datos.
- */
 class CartController
 {
     /**
-     * Muestra el estado actual del carrito de compra (GET /cart).
-     * * @return void
+     * Muestra el carrito de compras.
+     *
+     * @return void
      */
     public function index()
     {
@@ -34,10 +40,9 @@ class CartController
     }
 
     /**
-     * Añade un producto o incrementa su cantidad en la sesión (POST /cart/add).
-     * * Valida la existencia del producto y la disponibilidad de stock físico
-     * antes de alterar la estructura del carrito.
-     * * @return void
+     * Añade un producto o incrementa su cantidad en la sesión.
+     *
+     * @return void
      */
     public function add()
     {
@@ -59,6 +64,15 @@ class CartController
         $product = Product::findById($productId);
         if (!$product || $product->stock < $cantidad) {
             Session::setFlash('error', 'Producto no disponible en la cantidad solicitada.');
+            header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? BASE_URL . '/'));
+            exit;
+        }
+
+        // Evitar que un comercio compre sus propios productos
+        // Comprobamos si el usuario tiene un comercio asignado en su sesión y si coincide con el del producto
+        $miComercioId = Session::get('business_id');
+        if ($miComercioId && (int)$miComercioId === (int)$product->business_id) {
+            Session::setFlash('error', 'No puedes añadir al carrito productos de tu propio negocio.');
             header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? BASE_URL . '/'));
             exit;
         }
@@ -86,8 +100,9 @@ class CartController
     }
 
     /**
-     * Elimina un artículo específico del carrito (POST /cart/remove).
-     * * @return void
+     * Elimina un artículo específico del carrito.
+     *
+     * @return void
      */
     public function remove()
     {
@@ -110,10 +125,9 @@ class CartController
     }
 
     /**
-     * Modifica de forma incremental o decremental las unidades de un ítem (POST /cart/update).
-     * * Realiza un control estricto de fluctuación de stock en tiempo real.
-     * Si las unidades descienden a cero, el producto se remueve automáticamente.
-     * * @return void
+     * Actualiza la cantidad de un producto en el carrito.
+     *
+     * @return void
      */
     public function update()
     {
@@ -136,15 +150,14 @@ class CartController
                     } else {
                         Session::setFlash('error', 'No hay más stock disponible.');
                     }
-                } {
-                    if ($accion === 'restar') {
-                        $cart[$productId]['cantidad']--;
-                        if ($cart[$productId]['cantidad'] <= 0) {
-                            unset($cart[$productId]);
-                            Session::setFlash('success', 'Producto eliminado del carrito.');
-                        }
+                } elseif ($accion === 'restar') {
+                    $cart[$productId]['cantidad']--;
+                    if ($cart[$productId]['cantidad'] <= 0) {
+                        unset($cart[$productId]);
+                        Session::setFlash('success', 'Producto eliminado del carrito.');
                     }
                 }
+
                 Session::set('cart', $cart);
             }
         }
@@ -154,8 +167,9 @@ class CartController
     }
 
     /**
-     * Limpia por completo la estructura del carrito en la sesión (POST /cart/clear).
-     * * @return void
+     * Limpia el carrito almacenado en sesión.
+     *
+     * @return void
      */
     public function clear()
     {
@@ -171,7 +185,8 @@ class CartController
     }
 
     /**
-     * Redirige al flujo intermedio de simulación de pasarela de pago (POST /checkout).
+     * Inicia el flujo de checkout y almacena el método de entrega.
+     *
      * @return void
      */
     public function checkout()
@@ -188,7 +203,6 @@ class CartController
             exit;
         }
 
-        // 🌟 LA CORRECCIÓN AQUÍ: Capturamos el POST del carrito ANTES de la redirección
         $deliveryMethod = $_POST['delivery_method'] ?? 'domicilio';
         Session::set('delivery_method', $deliveryMethod);
 
@@ -197,7 +211,8 @@ class CartController
     }
 
     /**
-     * Renderiza la interfaz visual de la pasarela de pago simulada.
+     * Renderiza la pasarela de pago simulada.
+     *
      * @return void
      */
     public function showSimulation()
@@ -207,9 +222,6 @@ class CartController
             exit;
         }
 
-        // 🌟 CORRECCIÓN AQUÍ: Eliminamos la línea del $_POST para no sobreescribir la sesión.
-        // El dato ya está guardado de forma segura en la sesión gracias al método checkout().
-
         $cart = Session::get('cart', []);
         $total = array_sum(array_map(fn($i) => $i['precio'] * $i['cantidad'], $cart));
 
@@ -217,18 +229,13 @@ class CartController
     }
 
     /**
-     * Consolida el pedido de forma definitiva en la base de datos (POST /checkout/confirm).
-     * * Opera bajo una transacción ACID estricta que asegura:
-     * 1. Persistencia de la dirección física del comprador.
-     * 2. Inserción de la cabecera de la compra (`purchase`).
-     * 3. Desglose detallado de las líneas del pedido (`order_item`).
-     * 4. Sustracción del stock remanente con control de concurrencia.
-     * * @throws \RuntimeException Si se detecta una ruptura de stock durante el procesamiento.
+     * Consolida el pedido en la base de datos y resta el stock.
+     *
+     * @throws \RuntimeException
      * @return void
      */
     public function confirmCheckout()
     {
-
         if (!Session::get('user_id')) {
             header('Location: ' . BASE_URL . '/login');
             exit;
@@ -240,7 +247,6 @@ class CartController
             exit;
         }
 
-        // 🌟 CAPTURAMOS EL MÉTODO DE ENTREGA SELECCIONADO POR EL USUARIO
         $deliveryMethod = Session::get('delivery_method', 'domicilio');
 
         $db = Database::getInstance()->getConnection();
@@ -249,21 +255,17 @@ class CartController
         try {
             $db->beginTransaction();
 
-            // Extracción de la dirección del comprador de la tabla 'user'
             $userRow = User::findById(Session::get('user_id'));
             $direccionTexto = $userRow->direccion ?? 'Dirección no especificada';
 
-            // Registro de la localización en la tabla unificada de direcciones
             $stmtNewAddr = $db->prepare('INSERT INTO address (calle, numero, codigo_postal, ciudad, provincia) VALUES (?, ?, ?, ?, ?)');
             $stmtNewAddr->execute([$direccionTexto, '-', '-', 'Villafranca de los Barros', 'Badajoz']);
             $addressId = $db->lastInsertId();
 
-            // 🌟 ACTUALIZADO: Añadimos delivery_method al registro maestro del pedido
             $stmt = $db->prepare('INSERT INTO purchase (user_id, address_id, total, estado, delivery_method) VALUES (?, ?, ?, ?, ?)');
             $stmt->execute([Session::get('user_id'), $addressId, $total, 'PENDIENTE', $deliveryMethod]);
             $purchaseId = (int)$db->lastInsertId();
 
-            // Procesamiento síncrono de líneas de pedido y actualización de inventario
             $stmtItem = $db->prepare('INSERT INTO order_item (purchase_id, product_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)');
             $stmtStock = $db->prepare('UPDATE product SET stock = stock - ? WHERE id = ? AND stock >= ?');
 

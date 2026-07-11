@@ -1,15 +1,24 @@
 <?php
-// =========================================================
-// app/Controllers/HomeController.php — Controlador de inicio
-// Renderiza la página principal de Mercalocal.
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Controllers/HomeController.php — Controlador de inicio
+ *
+ * Gestiona la visualización de la página principal.
+ * · Carga la vista principal con el buscador
+ * · Incluye el listado de comercios destacados
+ * · Presenta el contenido inicial del sitio
+ * =========================================================
+ */
+
 namespace App\Controllers;
 
 class HomeController
 {
     /**
      * Muestra la página de inicio (GET /).
-     * Carga la vista principal con el buscador y el listado de comercios destacados.
+     *
+     * @return void
      */
     public function index()
     {

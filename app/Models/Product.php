@@ -1,9 +1,16 @@
 <?php
-// =========================================================
-// app/Models/Product.php — Modelo de producto
-// Representa un artículo que un comercio pone a la venta.
-// Gestiona la lectura de registros de la tabla `product`.
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Models/Product.php — Modelo de producto
+ *
+ * Administra productos de un comercio:
+ * · Busca productos por ID
+ * · Lista productos por comercio
+ * · Crea, actualiza y elimina registros
+ * =========================================================
+ */
+
 namespace App\Models;
 
 use App\Core\Database;
@@ -12,27 +19,38 @@ use PDO;
 class Product
 {
     // Propiedades que corresponden a las columnas de la tabla `product`
+    /** @var int|null */
     public $id;
+    /** @var int */
     public $business_id; // ID del comercio al que pertenece el producto
+    /** @var int|null */
     public $category_id; // ID de la categoría del producto
+    /** @var string */
     public $nombre;
+    /** @var string|null */
     public $descripcion;
+    /** @var float|string */
     public $precio; // Precio unitario en euros
+    /** @var int|string */
     public $stock; // Unidades disponibles
+    /** @var string|null */
     public $imagen; // Nombre del archivo de imagen (almacenado en public/img/)
+    /** @var int */
     public $activo; // 1 = visible en el catálogo, 0 = oculto
+    /** @var string|null */
     public $created_at;
+    /** @var string|null */
     public $category_name;
+    /** @var string|null */
     public $updated_at;
+    /** @var string|null */
     public $unidad_medida; // Campo calculado mediante JOIN con la tabla category
 
     /**
      * Busca un producto por su ID.
-     * Se usa en el carrito para validar que el producto existe
-     * y que hay suficiente stock antes de añadirlo.
      *
-     * @param  int            $id ID del producto
-     * @return Product|false      Objeto Product o false si no existe
+     * @param int $id
+     * @return Product|false
      */
     public static function findById($id)
     {
@@ -44,7 +62,8 @@ class Product
     }
 
     /**
-     * Lista los productos de un comercio
+     * Lista los productos de un comercio.
+     *
      * @param int $businessId
      * @return array
      */
@@ -57,14 +76,14 @@ class Product
     }
 
     /**
-     * Crea un nuevo producto
+     * Crea un nuevo producto.
+     *
      * @param array $data
-     * @return int Inserted ID
+     * @return int
      */
     public static function create(array $data): int
     {
         $db = Database::getInstance()->getConnection();
-        // Añadimos 'unidad_medida' en los campos y un '?' más en los VALUES
         $sql = "INSERT INTO product (business_id, category_id, nombre, descripcion, precio, unidad_medida, stock, imagen, activo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
         $stmt = $db->prepare($sql);
         $stmt->execute([
@@ -73,7 +92,7 @@ class Product
             $data['nombre'],
             $data['descripcion'] ?? null,
             $data['precio'] ?? 0,
-            $data['unidad_medida'] ?? 'ud', // 🔥 NUEVO: Mapeado en la posición correcta
+            $data['unidad_medida'] ?? 'ud',
             $data['stock'] ?? 0,
             $data['imagen'] ?? null,
             isset($data['activo']) ? (int)$data['activo'] : 1,
@@ -82,12 +101,15 @@ class Product
     }
 
     /**
-     * Actualiza un producto existente
+     * Actualiza un producto existente.
+     *
+     * @param int $id
+     * @param array $data
+     * @return bool
      */
     public static function update(int $id, array $data): bool
     {
         $db = Database::getInstance()->getConnection();
-        // Añadimos 'unidad_medida = ?' en el SET
         $sql = "UPDATE product SET category_id = ?, nombre = ?, descripcion = ?, precio = ?, unidad_medida = ?, stock = ?, imagen = ?, activo = ? WHERE id = ?";
         $stmt = $db->prepare($sql);
         return $stmt->execute([
@@ -95,15 +117,19 @@ class Product
             $data['nombre'],
             $data['descripcion'] ?? null,
             $data['precio'] ?? 0,
-            $data['unidad_medida'] ?? 'ud', // 🔥 NUEVO: Mapeado en la posición correcta
+            $data['unidad_medida'] ?? 'ud',
             $data['stock'] ?? 0,
             $data['imagen'] ?? null,
             isset($data['activo']) ? (int)$data['activo'] : 1,
-            $id, // El ID siempre al final por el WHERE id = ?
+            $id,
         ]);
     }
+
     /**
-     * Elimina un producto por id
+     * Elimina un producto por id.
+     *
+     * @param int $id
+     * @return bool
      */
     public static function delete(int $id): bool
     {

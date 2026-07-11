@@ -1,103 +1,107 @@
 <?php
-// =========================================================
-// app/Core/Router.php — Enrutador HTTP de la aplicación
-// Mapea rutas (URL + método HTTP) a métodos de controladores.
-// Soporta parámetros dinámicos en la URL: /business/{id}
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Core/Router.php — Enrutador HTTP de la aplicación
+ *
+ * Gestiona el registro y despacho de rutas HTTP:
+ * · Registra rutas GET y POST
+ * · Convierte rutas dinámicas en expresiones regulares
+ * · Despacha peticiones al controlador o callback adecuado
+ * =========================================================
+ */
+
 namespace App\Core;
 
 class Router
 {
     // Array donde se almacenan todas las rutas registradas
-    private $routes = [];
+    private array $routes = [];
 
     /**
      * Registra una ruta que responde a peticiones GET.
      *
-     * @param string $path     Ruta URL, p.ej. '/business/{id}'
-     * @param mixed  $callback Array [Controlador::class, 'método'] o callable
+     * @param string $path Ruta URL, p.ej. '/business/{id}'
+     * @param array|\Closure $callback Controlador y método [Clase, 'metodo'] o función anónima
+     * @return void
      */
-    public function get($path, $callback)
+    public function get(string $path, $callback): void
     {
         $this->addRoute('GET', $path, $callback);
     }
 
     /**
-     * Registra una ruta que responde a peticiones POST (envío de formularios).
+     * Registra una ruta que responde a peticiones POST.
+     *
+     * @param string $path Ruta URL, p.ej. '/business/{id}'
+     * @param array|\Closure $callback Controlador y método o función anónima
+     * @return void
      */
-    public function post($path, $callback)
+    public function post(string $path, $callback): void
     {
         $this->addRoute('POST', $path, $callback);
     }
 
     /**
-     * Añade internamente una ruta al array $routes.
-     * Convierte los parámetros dinámicos {param} en expresiones regulares.
-     * Ejemplo: '/business/{id}' → '/business/(?P<id>[a-zA-Z0-9_-]+)'
+     * Añade una ruta al array de rutas.
+     *
+     * @param string $method Método HTTP
+     * @param string $path Ruta URL con parámetros dinámicos
+     * @param array|\Closure $callback El ejecutor de la ruta
+     * @return void
      */
-    private function addRoute($method, $path, $callback)
+    private function addRoute(string $method, string $path, $callback): void
     {
-        // Transforma {nombre_param} en un grupo de captura nombrado de regex
         $pathRegex = preg_replace('/\{([a-zA-Z0-9_]+)\}/', '(?P<\1>[a-zA-Z0-9_-]+)', $path);
         $this->routes[] = [
             'method' => $method,
-            'path' => '#^' . $pathRegex . '$#', // La ruta como regex completa
+            'path' => '#^' . $pathRegex . '$#',
             'callback' => $callback
         ];
     }
 
     /**
-     * Analiza la URL de la petición actual y ejecuta el controlador correspondiente.
-     * Si no encuentra ninguna ruta coincidente, devuelve un error 404.
+     * Analiza la URI y ejecuta el callback correspondiente.
      *
      * @param string $method Método HTTP: 'GET' o 'POST'
-     * @param string $uri    URI de la petición (de $_SERVER['REQUEST_URI'])
+     * @param string $uri URI de la petición
+     * @return void
      */
     public function dispatch($method, $uri)
     {
-        // Extraer solo la ruta sin parámetros GET (?foo=bar)
         $parsedUri = parse_url($uri, PHP_URL_PATH);
         if (!$parsedUri) {
             $parsedUri = '/';
         }
 
-        // Si la aplicación está instalada en un subdirectorio,
-        // eliminamos ese prefijo de la URL para comparar rutas correctamente
         if (defined('BASE_PATH') && BASE_PATH !== '' && BASE_PATH !== '/') {
             if (strpos($parsedUri, BASE_PATH) === 0) {
                 $parsedUri = substr($parsedUri, strlen(BASE_PATH));
             }
         }
 
-        // Garantizar que la ruta siempre comienza con '/'
         if ($parsedUri === '' || $parsedUri === false) {
             $parsedUri = '/';
         }
 
-        // Eliminar la barra final si no es la raíz (evita duplicados de ruta)
         if ($parsedUri !== '/' && substr($parsedUri, -1) === '/') {
             $parsedUri = rtrim($parsedUri, '/');
         }
 
-        // Recorrer las rutas registradas y buscar una que coincida
         foreach ($this->routes as $route) {
             if ($route['method'] === $method && preg_match($route['path'], $parsedUri, $matches)) {
-                // Extraer solo los parámetros nombrados (keys de tipo string)
                 $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
 
-                // Instanciar el controlador y llamar al método correspondiente
                 if (is_array($route['callback'])) {
                     $controller = new $route['callback'][0]();
                     call_user_func_array([$controller, $route['callback'][1]], $params);
                 } else {
-                    // También soporta funciones anónimas como callback
                     call_user_func_array($route['callback'], $params);
                 }
                 return;
             }
         }
 
-        // Ninguna ruta coincidió → respuesta 404
         http_response_code(404);
         echo "404 Not Found - $method $parsedUri";
     }

@@ -1,10 +1,16 @@
 <?php
-// =========================================================
-// app/Models/User.php — Modelo de usuario
-// Representa a un usuario registrado en la plataforma.
-// Gestiona la lectura y creación de registros en la tabla `user`.
-// Los roles posibles son: USER, BUSINESS y ADMIN.
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Models/User.php — Modelo de usuario
+ *
+ * Representa a un usuario registrado, con métodos de consulta y actualización:
+ * · Buscar usuario por identificador, email o ID
+ * · Crear nuevo registro con contraseña hasheada
+ * · Actualizar perfil existente
+ * =========================================================
+ */
+
 namespace App\Models;
 
 use App\Core\Database;
@@ -12,22 +18,25 @@ use App\Core\Database;
 class User
 {
     // Propiedades que corresponden a las columnas de la tabla `user`
-    public $id;
-    public $nombre;
-    public $apellidos;
-    public $telefono;
-    public $email;
-    public $password_hash; // Contraseña almacenada como hash bcrypt
-    public $imagen;
-    public $direccion; // Dirección de entrega
-    public $rol; // 'USER', 'BUSINESS' o 'ADMIN'
-    public $created_at;
-    public $updated_at;
+    public ?int $id = null;
+    public ?string $nombre = null;
+    public ?string $apellidos = null;
+    public ?string $telefono = null;
+    public ?string $email = null;
+    public ?string $password_hash = null; // Contraseña almacenada como hash bcrypt
+    public ?string $imagen = null;
+    public ?string $direccion = null; // Dirección de entrega
+    public ?string $rol = null; // 'USER', 'BUSINESS' o 'ADMIN'
+    public ?string $created_at = null;
+    public ?string $updated_at = null;
 
     /**
      * Busca un usuario por email o teléfono.
+     *
+     * @param string $identificador Email o teléfono del usuario
+     * @return self|null           Objeto User o null si no existe
      */
-    public static function findByIdentifier($identificador)
+    public static function findByIdentifier(string $identificador): ?self
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("SELECT * FROM user WHERE email = ? OR telefono = ?");
@@ -48,10 +57,10 @@ class User
      * Busca un usuario por su dirección de email.
      * Se usa principalmente en el proceso de login.
      *
-     * @param  string    $email Email a buscar
-     * @return User|null        Objeto User si existe, null si no
+     * @param  string $email Email a buscar
+     * @return self|null     Objeto User si existe, null si no
      */
-    public static function findByEmail($email)
+    public static function findByEmail(string $email): ?self
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("SELECT * FROM user WHERE email = ?");
@@ -59,7 +68,6 @@ class User
         $row = $stmt->fetch();
 
         if ($row) {
-            // Mapear el array de la BD a un objeto User
             $user = new self();
             foreach ($row as $key => $value) {
                 $user->$key = $value;
@@ -74,9 +82,9 @@ class User
      * Se usa para recuperar el perfil del usuario autenticado.
      *
      * @param  int       $id ID del usuario
-     * @return User|null     Objeto User o null si no existe
+     * @return self|null     Objeto User o null si no existe
      */
-    public static function findById($id)
+    public static function findById(int $id): ?self
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("SELECT * FROM user WHERE id = ?");
@@ -100,7 +108,7 @@ class User
      * @param  array $data Datos del formulario de registro
      * @return int         ID del nuevo usuario insertado
      */
-    public static function create($data)
+    public static function create(array $data): int
     {
         $db = Database::getInstance()->getConnection();
         $sql = "INSERT INTO user (nombre, apellidos, telefono, email, password_hash, rol)
@@ -111,16 +119,19 @@ class User
             $data['apellidos'] ?? null,
             $data['telefono'],
             $data['email'],
-            password_hash($data['password'], PASSWORD_DEFAULT), // Generar hash seguro
+            password_hash($data['password'], PASSWORD_DEFAULT),
             $data['rol'] ?? 'USER'
         ]);
-        return $db->lastInsertId(); // Devolver el ID generado
+        return $db->lastInsertId();
     }
 
     /**
-     * Actualiza el perfil del usuario
+     * Actualiza el perfil del usuario.
+     *
+     * @param  array $data Campos del perfil a actualizar
+     * @return bool        true si se actualizó correctamente, false si no
      */
-    public function update($data)
+    public function update(array $data): bool
     {
         $db = Database::getInstance()->getConnection();
         $fields = [];

@@ -26,17 +26,55 @@ body {
 
 /* ── Componentes personalizados ── */
 
-/* Botón primario naranja */
 .btn-primary {
-    @apply inline-flex items-center justify-center px-5 py-2.5 bg-primary text-white font-bold rounded-lg hover:bg-orange-600 active:bg-orange-700 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.625rem 1.25rem; /* py-2.5 px-5 */
+    background-color: var(--color-primary);
+    color: #ffffff;
+    font-weight: 700;
+    border-radius: 0.5rem; /* rounded-lg */
+    transition: background-color 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.btn-primary:hover {
+    background-color: var(--color-primary-dark);
+}
+.btn-primary:active {
+    background-color: #d45507; /* slightly darker */
+}
+.btn-primary:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(249,115,22,0.12);
 }
 
-/* Card estilo GitHub */
 .gh-card {
-    @apply bg-white border border-gray-200 rounded-lg shadow-none hover:border-gray-300 transition-colors;
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb; /* gray-200 */
+    border-radius: 0.5rem;
+    box-shadow: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.gh-card:hover {
+    border-color: #d1d5db; /* gray-300 */
 }
 
-/* Input estilo GitHub */
 .gh-input {
-    @apply w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm transition-colors;
+    width: 100%;
+    padding: 0.625rem 1rem; /* py-2.5 px-4 */
+    background-color: #ffffff;
+    border: 1px solid #d1d5db; /* gray-300 */
+    border-radius: 0.5rem;
+    color: #111827; /* gray-900 */
+    font-size: 0.875rem; /* text-sm */
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.gh-input::placeholder {
+    color: #9ca3af; /* placeholder-gray-400 */
+}
+.gh-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(249,115,22,0.08);
 }

@@ -14,10 +14,21 @@
                 </div>
             </div>
             <nav class="space-y-2">
-                <a href="<?= BASE_URL ?>/admin/dashboard" class="flex items-center gap-3 px-4 py-3 bg-orange-50 text-primary font-bold rounded-xl">
+                <?php
+                // 1. Detectamos la ruta actual quitando el BASE_URL si fuera necesario.
+                // Esta comprobación busca si la URL contiene la palabra clave de la sección.
+                $current_uri = $_SERVER['REQUEST_URI'];
+                $is_dashboard = (strpos($current_uri, '/admin/dashboard') !== false || $current_uri === '/admin');
+                $is_businesses = (strpos($current_uri, '/admin/businesses') !== false);
+                ?>
+
+                <a href="<?= BASE_URL ?>/admin/dashboard"
+                    class="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors <?= $is_dashboard ? 'bg-orange-50 text-primary font-bold' : 'text-gray-600 hover:bg-gray-50 hover:text-primary font-medium' ?>">
                     <i class="fa-solid fa-chart-pie w-5"></i> Resumen
                 </a>
-                <a href="<?= BASE_URL ?>/admin/businesses" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-primary font-medium rounded-xl transition-colors">
+
+                <a href="<?= BASE_URL ?>/admin/businesses"
+                    class="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors <?= $is_businesses ? 'bg-orange-50 text-primary font-bold' : 'text-gray-600 hover:bg-gray-50 hover:text-primary font-medium' ?>">
                     <i class="fa-solid fa-store w-5"></i> Comercios
                 </a>
                 <a href="<?= BASE_URL ?>/logout" class="flex items-center gap-3 px-4 py-3 mt-4 text-red-600 hover:bg-red-50 font-medium rounded-xl transition-colors">

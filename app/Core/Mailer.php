@@ -1,74 +1,72 @@
 <?php
-// =========================================================
-// app/Core/Mailer.php — Sistema de notificaciones por email
-// Encapsula PHPMailer para enviar emails transaccionales
-// con diseño de marca de Mercalocal.
-//
-// PHPMailer se instala con: composer require phpmailer/phpmailer
-// Para activar el envío, establece MAIL_ENABLED = true en config.php
-// y rellena las credenciales SMTP (p.ej. Brevo o Mailtrap).
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Core/Mailer.php — Sistema de notificaciones por email
+ *
+ * Envía emails transaccionales con plantilla de marca:
+ * · Configura PHPMailer con SMTP
+ * · Envía confirmaciones y alertas para pedidos y reservas
+ * · Genera mensajes personalizados para clientes y comercios
+ * =========================================================
+ */
+
 namespace App\Core;
 
 use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
 class Mailer
 {
     /**
-     * Crea y devuelve una instancia de PHPMailer ya configurada
-     * con los parámetros SMTP definidos en config.php.
-     * Devuelve null si el envío de emails está desactivado.
+     * Crea y devuelve una instancia de PHPMailer configurada según config.php.
+     *
+     * @return PHPMailer|null
      */
     private static function build(): ?PHPMailer
     {
-        // Si MAIL_ENABLED es false, no se envía ningún email (modo test)
         if (!defined('MAIL_ENABLED') || !MAIL_ENABLED) {
             return null;
         }
 
-        $mail = new PHPMailer(true); // true = lanza excepciones ante errores
-        $mail->isSMTP(); // Usar protocolo SMTP
-        $mail->CharSet = 'UTF-8'; // Codificación para soportar tildes y ñ
+        $mail = new PHPMailer(true);
+        $mail->isSMTP();
+        $mail->CharSet = 'UTF-8';
         $mail->Host = MAIL_HOST;
-        $mail->SMTPAuth = true; // Autenticación obligatoria
+        $mail->SMTPAuth = true;
         $mail->Username = MAIL_USER;
         $mail->Password = MAIL_PASS;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; // Cifrado TLS
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = MAIL_PORT;
         $mail->setFrom(MAIL_FROM, MAIL_FROM_NAME);
-        $mail->isHTML(true); // El cuerpo del email será HTML
+        $mail->isHTML(true);
 
         return $mail;
     }
 
     /**
-     * Método interno que envía el email.
-     * Llama a build() para obtener la instancia configurada,
-     * adjunta el destinatario y dispara el envío.
+     * Envía el email usando PHPMailer.
      *
-     * @param string $toEmail Email del destinatario
-     * @param string $toName  Nombre del destinatario
-     * @param string $subject Asunto del email
-     * @param string $body    Contenido HTML del cuerpo
-     * @return bool           true si el email se envió, false si no
+     * @param string $toEmail
+     * @param string $toName
+     * @param string $subject
+     * @param string $body
+     * @return bool
      */
     private static function send(string $toEmail, string $toName, string $subject, string $body): bool
     {
         $mail = self::build();
         if ($mail === null) {
-            return false; // Email desactivado — se omite silenciosamente
+            return false;
         }
 
         try {
-            $mail->addAddress($toEmail, $toName); // Añadir destinatario
+            $mail->addAddress($toEmail, $toName);
             $mail->Subject = $subject;
-            $mail->Body = self::wrap($subject, $body); // Envolver en plantilla de marca
+            $mail->Body = self::wrap($subject, $body);
             $mail->send();
             return true;
         } catch (Exception $e) {
-            // Registrar el error en el log de PHP sin interrumpir la petición
             error_log('[Mailer] Error al enviar email: ' . $e->getMessage());
             return false;
         }
@@ -76,16 +74,15 @@ class Mailer
 
     /**
      * Envía un email de confirmación de pedido al cliente.
-     * Se llama desde CartController tras procesar el checkout.
      *
-     * @param array $user       Datos del cliente (nombre, email)
-     * @param array $items      Líneas del pedido (nombre, cantidad, precio_unitario)
-     * @param float $total      Importe total del pedido
-     * @param int   $purchaseId ID del pedido en la base de datos
+     * @param array $user
+     * @param array $items
+     * @param float $total
+     * @param int $purchaseId
+     * @return bool
      */
     public static function sendOrderToClient(array $user, array $items, float $total, int $purchaseId): bool
     {
-        // Construir las filas de la tabla de productos
         $rows = '';
         foreach ($items as $it) {
             $rows .= "<tr>
@@ -115,17 +112,16 @@ class Mailer
 
     /**
      * Envía una alerta al comercio cuando recibe un nuevo pedido.
-     * Se llama desde CartController tras completar el checkout.
      *
-     * @param string $businessEmail Email de contacto del comercio
-     * @param string $businessName  Nombre del comercio
-     * @param array  $items         Líneas del pedido
-     * @param float  $total         Importe total del pedido
-     * @param int    $purchaseId    ID del pedido
+     * @param string $businessEmail
+     * @param string $businessName
+     * @param array $items
+     * @param float $total
+     * @param int $purchaseId
+     * @return bool
      */
     public static function sendOrderToBusiness(string $businessEmail, string $businessName, array $items, float $total, int $purchaseId): bool
     {
-        // Construir las filas de la tabla de productos
         $rows = '';
         foreach ($items as $it) {
             $rows .= "<tr>
@@ -155,11 +151,11 @@ class Mailer
 
     /**
      * Envía la confirmación de una reserva al cliente.
-     * Se llama desde ReservationController tras guardar la cita.
      *
-     * @param array  $user         Datos del cliente (nombre, email)
-     * @param array  $reservation  Datos de la reserva (fecha, hora_inicio, service_name…)
-     * @param string $businessName Nombre del comercio donde se hace la reserva
+     * @param array $user
+     * @param array $reservation
+     * @param string $businessName
+     * @return bool
      */
     public static function sendReservationToClient(array $user, array $reservation, string $businessName): bool
     {
@@ -180,12 +176,12 @@ class Mailer
 
     /**
      * Envía una alerta al comercio cuando recibe una nueva solicitud de cita.
-     * Se llama desde ReservationController tras guardar la reserva.
      *
-     * @param string $businessEmail Email del comercio
-     * @param string $businessName  Nombre del comercio
-     * @param array  $user          Datos del cliente (nombre, apellidos, teléfono)
-     * @param array  $reservation   Datos de la cita (fecha, hora_inicio, service_name…)
+     * @param string $businessEmail
+     * @param string $businessName
+     * @param array $user
+     * @param array $reservation
+     * @return bool
      */
     public static function sendReservationToBusiness(string $businessEmail, string $businessName, array $user, array $reservation): bool
     {
@@ -206,24 +202,16 @@ class Mailer
     }
 
     /**
-     * Envía un email de bienvenida al nuevo usuario tras completar el registro.
-     * El mensaje se adapta según el rol:
-     *   - USER     → le invita a explorar los comercios y hacer su primer pedido
-     *   - BUSINESS → le recuerda que debe completar el perfil de su comercio
+     * Envía un email de bienvenida al nuevo usuario tras completarse el registro.
      *
-     * Se llama desde AuthController::register() justo después de crear la cuenta.
-     * Si MAIL_ENABLED es false, el método devuelve false silenciosamente.
-     *
-     * @param  string $nombre Nombre del nuevo usuario
-     * @param  string $email  Email del nuevo usuario
-     * @param  string $rol    Rol asignado: 'USER' o 'BUSINESS'
-     * @return bool           true si el email se envió, false si no
+     * @param string $nombre
+     * @param string $email
+     * @param string $rol
+     * @return bool
      */
     public static function sendWelcome(string $nombre, string $email, string $rol): bool
     {
-        // Personalizar el cuerpo según el tipo de cuenta creada
         if ($rol === 'BUSINESS') {
-            // Email para nuevos comercios: les guía al asistente de configuración
             $body = "
                 <p style='font-size:1rem;'>Hola, <strong>{$nombre}</strong> 👋</p>
                 <p>¡Tu cuenta de comercio en <strong>Mercalocal</strong> ha sido creada con éxito!</p>
@@ -242,7 +230,6 @@ class Mailer
             ";
             $subject = '🏪 ¡Bienvenido a Mercalocal! Configura tu perfil de comercio';
         } else {
-            // Email para clientes: les invita a explorar el catálogo
             $body = "
                 <p style='font-size:1rem;'>Hola, <strong>{$nombre}</strong> 👋</p>
                 <p>¡Ya formas parte de <strong>Mercalocal</strong>! Gracias por unirte a nuestra comunidad
@@ -271,12 +258,11 @@ class Mailer
     }
 
     /**
-     * Envuelve el contenido HTML del email en la plantilla
-     * de marca de Mercalocal (cabecera verde + pie de página).
+     * Envuelve el contenido HTML del email en la plantilla de Mercalocal.
      *
-     * @param string $title Asunto / título del email
-     * @param string $body  Contenido principal HTML
-     * @return string       HTML completo del email
+     * @param string $title
+     * @param string $body
+     * @return string
      */
     private static function wrap(string $title, string $body): string
     {

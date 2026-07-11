@@ -1,13 +1,16 @@
 <?php
-// =========================================================
-// app/Controllers/AuthController.php — Controlador de autenticación
-// Gestiona el flujo completo de identidad del usuario:
-//   · Mostrar el formulario de login
-//   · Procesar el inicio de sesión
-//   · Mostrar el formulario de registro
-//   · Crear nuevas cuentas
-//   · Cerrar sesión
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Controllers/AuthController.php — Controlador de autenticación
+ *
+ * Gestiona el flujo completo de identidad del usuario:
+ * · Mostrar el formulario de login
+ * · Procesar el inicio de sesión y registro
+ * · Cerrar sesión y redirigir según rol
+ * =========================================================
+ */
+
 namespace App\Controllers;
 
 use App\Core\Session;
@@ -20,16 +23,16 @@ class AuthController
     /**
      * Muestra el formulario de inicio de sesión.
      * Si el usuario ya está autenticado, lo redirige al inicio o a su panel correspondiente.
+     *
+     * @return void
      */
     public function showLogin()
     {
-        // Si ya está autenticado, redirigir al dashboard de su rol
         if (Session::get('user_id')) {
             $role = Session::get('user_role');
             if ($role === 'ADMIN') {
                 header('Location: ' . BASE_URL . '/admin/dashboard');
             } elseif ($role === 'BUSINESS') {
-                // RETOQUE: Si es comercio pero no tiene el setup, al asistente
                 if (Session::get('business_id')) {
                     header('Location: ' . BASE_URL . '/business/dashboard');
                 } else {
@@ -47,14 +50,14 @@ class AuthController
      * Procesa el formulario de login (POST /login).
      * Verifica credenciales y establece la sesión del usuario.
      * Los comercios sin perfil creado se redirigen al asistente de configuración.
+     *
+     * @return void
      */
     public function login()
     {
-        // Detectar si es una solicitud AJAX
         $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
             strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 
-        // Rate limiting: máximo 5 intentos por IP en 15 minutos
         $ip = $_SERVER['REMOTE_ADDR'];
         $attemptsKey = 'login_attempts_' . $ip;
         $timeKey = 'login_time_' . $ip;
@@ -62,17 +65,16 @@ class AuthController
         $attempts = Session::get($attemptsKey, 0);
         $lastAttempt = Session::get($timeKey, 0);
 
-        if ($currentTime - $lastAttempt < 900) { // 15 minutos
+        if ($currentTime - $lastAttempt < 900) {
             if ($attempts >= 5) {
                 Session::setFlash('error', 'Demasiados intentos de login. Intenta de nuevo en 15 minutos.');
                 header('Location: ' . BASE_URL . '/login');
                 exit;
             }
         } else {
-            $attempts = 0; // Reset after 15 min
+            $attempts = 0;
         }
 
-        // Protegemos contra CSRF en todos los envíos POST
         $token = $_POST['csrf_token'] ?? '';
         if (!Session::validateCsrfToken($token)) {
             Session::setFlash('error', 'Petición inválida. Intenta de nuevo.');
@@ -83,7 +85,6 @@ class AuthController
         $identificador = $_POST['identificador'] ?? '';
         $password = $_POST['password'] ?? '';
 
-        // Validación centralizada
         $validator = new \App\Core\Validator($_POST);
         $validator->required('identificador', 'El identificador es obligatorio.')
             ->required('password', 'La contraseña es obligatoria.')
@@ -92,40 +93,34 @@ class AuthController
         if (!$validator->isValid()) {
             $errors = $validator->getErrors();
             Session::setFlash('error', implode(' ', $errors));
-            // Incrementar intentos
             Session::set($attemptsKey, $attempts + 1);
             Session::set($timeKey, $currentTime);
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
 
-        // Buscar el usuario por email o teléfono y verificar la contraseña
         $user = User::findByIdentifier($identificador);
         if ($user && password_verify($password, $user->password_hash)) {
             Session::regenerate();
-            // Reset attempts on success
             Session::set($attemptsKey, 0);
 
-            // Guardar datos del usuario en la sesión
             Session::set('user_id', $user->id);
             Session::set('user_role', $user->rol);
             Session::set('user_name', $user->nombre);
             Session::set('user_email', $user->email);
 
-            // FLUJO AJAX
             if ($isAjax) {
                 $redirectUrl = BASE_URL . '/';
                 if ($user->rol === 'BUSINESS') {
                     $db = Database::getInstance()->getConnection();
                     $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
                     $stmt->execute([$user->id]);
-                    $businessId = $stmt->fetchColumn(); // Captura directa del ID numérico o false
+                    $businessId = $stmt->fetchColumn();
 
                     if (!$businessId) {
                         Session::setFlash('info', 'Completa el perfil de tu comercio para comenzar.');
                         $redirectUrl = BASE_URL . '/business/setup';
                     } else {
-                        // RETOQUE: Almacenamos el ID del comercio en la sesión
                         Session::set('business_id', $businessId);
                         $redirectUrl = BASE_URL . '/business/dashboard';
                     }
@@ -137,42 +132,36 @@ class AuthController
                 exit;
             }
 
-            // FLUJO POST TRADICIONAL
             if ($user->rol === 'BUSINESS') {
                 $db = Database::getInstance()->getConnection();
                 $stmt = $db->prepare('SELECT id FROM business WHERE user_id = ? LIMIT 1');
                 $stmt->execute([$user->id]);
-                $businessId = $stmt->fetchColumn(); // Captura directa del ID numérico o false
+                $businessId = $stmt->fetchColumn();
 
                 if (!$businessId) {
-                    // Todavía no tiene perfil de comercio → redirigir al asistente
                     Session::setFlash('info', 'Completa el perfil de tu comercio para comenzar.');
                     session_write_close();
                     header('Location: ' . BASE_URL . '/business/setup');
                     exit;
                 }
 
-                // RETOQUE: Almacenamos el ID del comercio en la sesión
                 Session::set('business_id', $businessId);
                 session_write_close();
                 header('Location: ' . BASE_URL . '/business/dashboard');
                 exit;
             }
 
-            // Si es admin → su panel
             if ($user->rol === 'ADMIN') {
                 session_write_close();
                 header('Location: ' . BASE_URL . '/admin/dashboard');
                 exit;
             }
 
-            // Session::setFlash('success', '¡Bienvenido de nuevo, ' . htmlspecialchars($user->nombre) . '!');
             session_write_close();
             header('Location: ' . BASE_URL . '/user/dashboard');
             exit;
         }
 
-        // Credenciales incorrectas - incrementar intentos
         Session::set($attemptsKey, $attempts + 1);
         Session::set($timeKey, $currentTime);
         Session::setFlash('error', 'Credenciales incorrectas. Revisa tu email y contraseña.');
@@ -183,6 +172,8 @@ class AuthController
     /**
      * Muestra el formulario de registro de nuevos usuarios.
      * Si el usuario ya está autenticado, lo redirige al inicio.
+     *
+     * @return void
      */
     public function showRegister()
     {
@@ -195,10 +186,11 @@ class AuthController
 
     /**
      * Procesa el formulario de registro (POST /register).
+     *
+     * @return void
      */
     public function register()
     {
-        // comprobar token CSRF
         $token = $_POST['csrf_token'] ?? '';
         if (!Session::validateCsrfToken($token)) {
             Session::setFlash('error', 'Petición inválida. Intenta de nuevo.');
@@ -206,7 +198,6 @@ class AuthController
             exit;
         }
 
-        // Recoger y sanear los datos del formulario
         $data = [
             'nombre' => trim($_POST['nombre'] ?? ''),
             'apellidos' => trim($_POST['apellidos'] ?? ''),
@@ -217,7 +208,6 @@ class AuthController
 
         $errors = [];
 
-        // Validaciones de formato y longitud
         if (strlen($data['nombre']) < 3) {
             $errors['nombre'] = 'El nombre debe tener al menos 3 caracteres.';
         } elseif (!preg_match('/[aeiouáéíóúAEIOUÁÉÍÓÚ]/u', $data['nombre'])) {
@@ -284,7 +274,6 @@ class AuthController
             Session::remove('register_old');
             Session::remove('register_errors');
 
-            // Solo envía el correo si hay un email registrado
             if (!empty($data['email'])) {
                 Mailer::sendWelcome($data['nombre'], $data['email'], $data['rol']);
             }
@@ -306,6 +295,8 @@ class AuthController
 
     /**
      * Cierra la sesión del usuario y lo redirige al inicio.
+     *
+     * @return void
      */
     public function logout()
     {

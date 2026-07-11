@@ -28,10 +28,10 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
         <!-- TOP NAV: SEGUIR COMPRANDO & TU CESTA -->
         <div class="top-nav-header">
             <div style="display: flex; align-items: center; gap: 12px;">
-                <i class="fa-solid fa-basket-shopping" style="color: #f97316; font-size: 28px;"></i>
+                <i class="fa-solid fa-cart-shopping" style="color: #f97316; font-size: 28px;"></i>
 
                 <h2 style="font-size: 32px; font-weight: 900; color: #1a2e1f; margin: 0; letter-spacing: -1px;">
-                    Tu Cesta
+                    Tu Carrito
                 </h2>
             </div>
 

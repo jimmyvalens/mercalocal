@@ -1,10 +1,16 @@
 <?php
-// =========================================================
-// app/Controllers/BusinessDashboardController.php
-// Controlador del panel de control privado del comercio.
-// Gestiona el flujo de estadísticas, configuración, productos,
-// servicios y horarios del comercio.
-// =========================================================
+
+/**
+ * =========================================================
+ * app/Controllers/BusinessDashboardController.php — Controlador del panel de negocio
+ *
+ * Controla estadísticas, pedidos, productos, horarios y configuración del comercio.
+ * · Requiere perfil de negocio autenticado
+ * · Gestiona operaciones CRUD sobre productos y horarios
+ * · Actualiza estado de pedidos y datos de negocio
+ * =========================================================
+ */
+
 namespace App\Controllers;
 
 use App\Core\Session;
@@ -13,15 +19,21 @@ use PDO;
 
 class BusinessDashboardController
 {
+    /**
+     * Constructor del controlador.
+     *
+     * @return void
+     */
     public function __construct()
     {
-        // Control de acceso centralizado: si no es BUSINESS, el middleware expulsa al usuario
         \App\Core\Middleware::requireRole('BUSINESS');
     }
 
     /**
      * Extrae y verifica el perfil del comercio logueado.
-     * Si no existe, redirige automáticamente al asistente de configuración.
+     * Si no existe, redirige al asistente de configuración.
+     *
+     * @return array
      */
     private function requireBusinessProfile()
     {
@@ -40,6 +52,8 @@ class BusinessDashboardController
 
     /**
      * Muestra el panel principal con estadísticas rápidas de productos, ventas y últimos pedidos.
+     *
+     * @return void
      */
     public function index()
     {
@@ -48,17 +62,14 @@ class BusinessDashboardController
         $db = Database::getInstance()->getConnection();
         $stats = [];
 
-        // ── 1. Productos Activos ──
         $stmt = $db->prepare('SELECT COUNT(*) as total FROM product WHERE business_id = ? AND activo = 1');
         $stmt->execute([$bid]);
         $stats['products_active'] = (int)$stmt->fetch()['total'];
 
-        // ── 2. Productos Inactivos ──
         $stmt = $db->prepare('SELECT COUNT(*) as total FROM product WHERE business_id = ? AND activo = 0');
         $stmt->execute([$bid]);
         $stats['products_inactive'] = (int)$stmt->fetch()['total'];
 
-        // ── 3. Pedidos PENDIENTES reales (Lo dejamos por si tu menú superior lo usa para las notificaciones) ──
         $stmt = $db->prepare(
             "SELECT COUNT(DISTINCT p.id) as total 
              FROM purchase p
@@ -69,23 +80,19 @@ class BusinessDashboardController
         $stmt->execute([$bid]);
         $stats['pending_orders'] = (int)$stmt->fetch()['total'];
 
-        // ── 4. Ventas Reales del Mes Actual (¡Modificado: Solo pedidos COMPLETADOS!) ──
-        // Cambiamos el '!= CANCELADO' por '= COMPLETADO' para reflejar el ciclo de vida cerrado
         $stmt = $db->prepare(
             "SELECT SUM(oi.precio_unitario * oi.cantidad) as total_mes
              FROM purchase p
              JOIN order_item oi ON oi.purchase_id = p.id
              JOIN product pr    ON pr.id = oi.product_id
              WHERE pr.business_id = ? 
-               AND p.estado = 'COMPLETADO' -- 🔥 Filtro exacto para el ciclo de venta cerrado
+               AND p.estado = 'COMPLETADO' 
                AND MONTH(p.created_at) = MONTH(CURRENT_DATE()) 
                AND YEAR(p.created_at) = YEAR(CURRENT_DATE())"
         );
         $stmt->execute([$bid]);
         $stats['monthly_sales'] = (float)($stmt->fetch()['total_mes'] ?? 0);
 
-
-        // ── 5. Últimos 5 pedidos recibidos (Tabla del panel) ──
         $stmt = $db->prepare(
             "SELECT p.id, p.total, p.estado, p.created_at, u.nombre as client_name
              FROM purchase p
@@ -103,6 +110,8 @@ class BusinessDashboardController
 
     /**
      * Muestra el listado de pedidos del comercio aplicando los filtros del formulario.
+     *
+     * @return void
      */
     public function orders()
     {
@@ -110,12 +119,9 @@ class BusinessDashboardController
         $bid = $business['id'];
         $db = Database::getInstance()->getConnection();
 
-        // 1. Recogemos los filtros que vienen del formulario
         $search = isset($_GET['search']) ? trim($_GET['search']) : '';
         $statusForm = isset($_GET['status']) ? trim($_GET['status']) : '';
 
-        // 🌟 TRADUCCIÓN COMPLETA: Mapeamos el HTML al ENUM exacto en Mayúsculas de la BD
-        // Usamos match para mantener el código limpio, directo y libre de estructuras pesadas
         $estado = match (strtolower($statusForm)) {
             'pendiente'                                   => 'PENDIENTE',
             'preparando', 'preparacion', 'en_preparacion' => 'PREPARANDO',
@@ -125,20 +131,16 @@ class BusinessDashboardController
             default                                       => ''
         };
 
-        // 2. Calculamos las estadísticas para que la barra lateral compartida no falle
         $stats = [];
 
-        // Productos Activos
         $stmt = $db->prepare('SELECT COUNT(*) as total FROM product WHERE business_id = ? AND activo = 1');
         $stmt->execute([$bid]);
         $stats['products_active'] = (int)$stmt->fetch()['total'];
 
-        // Productos Inactivos
         $stmt = $db->prepare('SELECT COUNT(*) as total FROM product WHERE business_id = ? AND activo = 0');
         $stmt->execute([$bid]);
         $stats['products_inactive'] = (int)$stmt->fetch()['total'];
 
-        // Pedidos PENDIENTES reales
         $stmt = $db->prepare(
             "SELECT COUNT(DISTINCT p.id) as total 
              FROM purchase p
@@ -149,9 +151,6 @@ class BusinessDashboardController
         $stmt->execute([$bid]);
         $stats['pending_orders'] = (int)$stmt->fetch()['total'];
 
-
-        // 3. Consulta BASE (Traer los pedidos del comercio usando la tabla 'purchase')
-        // 🌟 ACTUALIZADO: Añadimos los campos de la dirección y el LEFT JOIN correspondiente
         $sql = "SELECT p.id, p.total, p.estado, p.created_at, p.delivery_method, 
                        u.nombre as client_name, u.telefono as client_phone,
                        a.calle, a.numero, a.codigo_postal, a.ciudad, a.provincia -- 🌟 Campos de dirección
@@ -162,31 +161,25 @@ class BusinessDashboardController
                 LEFT JOIN address a ON a.id = p.address_id -- 🌟 Vinculamos la dirección real de esta compra
                 WHERE pr.business_id = :bid";
 
-        // Inicializamos el array de parámetros para la consulta preparada
         $params = [':bid' => $bid];
 
-        // 4. FILTRO DINÁMICO: Si el comerciante busca por Nombre o Teléfono
         if ($search !== '') {
             $sql .= " AND (u.nombre LIKE :search_name OR u.telefono LIKE :search_phone)";
             $params[':search_name'] = "%" . $search . "%";
             $params[':search_phone'] = "%" . $search . "%";
         }
 
-        // 5. FILTRO DINÁMICO: Si el comerciante selecciona un estado concreto en el desplegable
         if ($estado !== '') {
             $sql .= " AND p.estado = :estado";
             $params[':estado'] = $estado;
         }
 
-        // 6. Agrupamos y ordenamos (los más recientes primero)
         $sql .= " GROUP BY p.id ORDER BY p.created_at DESC";
 
-        // 7. Ejecutamos la consulta final con todos sus filtros pasados de forma segura
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
         $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Preparar la consulta para traer los artículos de este comercio
         $stmtItems = $db->prepare(
             "SELECT oi.cantidad, oi.precio_unitario, pr.nombre as producto_nombre
              FROM order_item oi
@@ -194,20 +187,20 @@ class BusinessDashboardController
              WHERE oi.purchase_id = ? AND pr.business_id = ?"
         );
 
-        // 🌟 USAMOS REFERENCIA (&$o) para inyectar a cada pedido su lista completa de productos
         foreach ($orders as &$o) {
             $stmtItems->execute([$o['id'], $bid]);
-            $o['items'] = $stmtItems->fetchAll(PDO::FETCH_ASSOC); // Guardamos la colección completa de filas
+            $o['items'] = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
         }
 
-        unset($o); // Rompemos la referencia por seguridad en memoria
+        unset($o);
 
-        // Cargamos la vista de pedidos pasando $orders, $stats, $search y $estado
         require_once ROOT_DIR . '/resources/views/business/orders.php';
     }
 
     /**
      * Actualiza el estado de un pedido desde el panel del comercio.
+     *
+     * @return void
      */
     public function updateStatus()
     {
@@ -218,13 +211,11 @@ class BusinessDashboardController
             $purchaseId = isset($_POST['purchase_id']) ? (int)$_POST['purchase_id'] : 0;
             $nuevoEstado = isset($_POST['nuevo_estado']) ? trim($_POST['nuevo_estado']) : '';
 
-            // 🌟 CORREGIDO: Lista con tus 5 estados reales de la Base de Datos
             $estadosValidos = ['PENDIENTE', 'PREPARANDO', 'LISTO', 'COMPLETADO', 'CANCELADO'];
 
             if ($purchaseId > 0 && in_array($nuevoEstado, $estadosValidos)) {
                 $db = Database::getInstance()->getConnection();
 
-                // SEGURIDAD: Verificamos que el pedido contiene al menos un producto de este comercio
                 $checkStmt = $db->prepare(
                     "SELECT COUNT(*) 
                      FROM order_item oi
@@ -234,20 +225,20 @@ class BusinessDashboardController
                 $checkStmt->execute([$purchaseId, $bid]);
 
                 if ((int)$checkStmt->fetchColumn() > 0) {
-                    // Si todo es correcto, actualizamos el estado del pedido en la tabla 'purchase'
                     $updateStmt = $db->prepare("UPDATE purchase SET estado = ? WHERE id = ?");
                     $updateStmt->execute([$nuevoEstado, $purchaseId]);
                 }
             }
         }
 
-        // Redirigimos de vuelta a la pantalla de pedidos para ver los cambios reflejados
         header('Location: ' . $_SERVER['HTTP_REFERER']);
         exit;
     }
 
     /**
-     * Asistente de configuración inicial (sólo si no tiene perfil creado aún).
+     * Asistente de configuración inicial.
+     *
+     * @return void
      */
     public function setup()
     {
@@ -265,6 +256,8 @@ class BusinessDashboardController
 
     /**
      * Procesa y guarda el perfil inicial enviado por POST.
+     *
+     * @return void
      */
     public function saveSetup()
     {
@@ -292,10 +285,11 @@ class BusinessDashboardController
         exit;
     }
 
-    // ---------------------------------------------------------------------
-    // GESTIÓN DE HORARIOS
-    // ---------------------------------------------------------------------
-
+    /**
+     * Muestra los horarios del comercio.
+     *
+     * @return void
+     */
     public function schedulesIndex()
     {
         $business = $this->requireBusinessProfile();
@@ -303,6 +297,11 @@ class BusinessDashboardController
         require_once ROOT_DIR . '/resources/views/business/schedules/index.php';
     }
 
+    /**
+     * Guarda un nuevo horario del comercio.
+     *
+     * @return void
+     */
     public function schedulesStore()
     {
         $business = $this->requireBusinessProfile();
@@ -314,7 +313,6 @@ class BusinessDashboardController
             'hora_cierre' => $_POST['hora_cierre'] ?? '18:00',
         ];
 
-        // 🌟 CONTROL DE DUPLICADOS: Frenamos antes de intentar el "create"
         if (\App\Models\Schedule::exists($data['business_id'], $data['dia_semana'], $data['hora_apertura'], $data['hora_cierre'])) {
             Session::setFlash('error', 'Este horario ya está registrado para tu comercio.');
             header('Location: ' . BASE_URL . '/business/dashboard/schedules');
@@ -332,9 +330,15 @@ class BusinessDashboardController
         exit;
     }
 
-    public function schedulesDelete($id)
+    /**
+     * Elimina un horario existente.
+     *
+     * @param int $id
+     * @return void
+     */
+    public function schedulesDelete(int $id)
     {
-        $business = $this->requireBusinessProfile();
+        $this->requireBusinessProfile();
 
         try {
             \App\Models\Schedule::delete($id);
@@ -346,10 +350,11 @@ class BusinessDashboardController
         exit;
     }
 
-    // ---------------------------------------------------------------------
-    // GESTIÓN DE PRODUCTOS
-    // ---------------------------------------------------------------------
-
+    /**
+     * Muestra el listado de productos del comercio.
+     *
+     * @return void
+     */
     public function productsIndex()
     {
         $business = $this->requireBusinessProfile();
@@ -357,35 +362,35 @@ class BusinessDashboardController
         require_once ROOT_DIR . '/resources/views/business/products/index.php';
     }
 
+    /**
+     * Muestra el formulario para crear un producto.
+     *
+     * @return void
+     */
     public function productsCreate()
     {
-        // 1. Cargamos el perfil del comercio (que ahora ya incluye 'id_categoria')
         $business = $this->requireBusinessProfile();
-
-        // 2. Extraemos el ID de la categoría usando la clave correcta en español
         $comercio_categoria_id = $business['id_categoria'];
-
-        // 3. Llamamos al modelo para traer SOLO los productos hijos de esta categoría (Alimentación)
         $cats = \App\Models\Category::getChildrenByParentAndType($comercio_categoria_id, 'producto');
-
-        // 4. Cargamos la vista del formulario
         require_once ROOT_DIR . '/resources/views/business/products/form.php';
     }
 
+    /**
+     * Guarda un nuevo producto enviado por POST.
+     *
+     * @return void
+     */
     public function productsStore()
     {
         $business = $this->requireBusinessProfile();
         $imagenNombre = null;
 
-        // ── Procesar carga de imagen ──
         if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['imagen'];
 
-            // Validar tipo de archivo real (MIME bytes)
             $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mimeType = finfo_file($finfo, $file['tmp_name']);
-            finfo_close($finfo);
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $mimeType = $finfo->file($file['tmp_name']);
 
             if (!in_array($mimeType, $allowedMimes)) {
                 Session::setFlash('error', 'Solo se permiten imágenes (JPG, PNG, GIF, WebP).');
@@ -393,7 +398,6 @@ class BusinessDashboardController
                 exit;
             }
 
-            // Validar tamaño (máx 5MB)
             if ($file['size'] > 5 * 1024 * 1024) {
                 Session::setFlash('error', 'La imagen no debe exceder 5MB.');
                 header('Location: ' . BASE_URL . '/business/dashboard/products/create');
@@ -421,7 +425,6 @@ class BusinessDashboardController
                 try {
                     \App\Core\ImageHelper::compress($uploadPath, $uploadPath, 80, 1200, 1200);
                 } catch (\Throwable $e) {
-                    // Si falla la compresión se continúa con la original
                 }
             } else {
                 Session::setFlash('error', 'Error al subir la imagen.');
@@ -430,29 +433,24 @@ class BusinessDashboardController
             }
         }
 
-        // 🔥 SOLUCIÓN AL ERROR 1366: Forzamos null si llega vacío
         $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
-
-        // ── NUEVO: Validar unidad de medida recibida del formulario ──
         $unidad_medida = $_POST['unidad_medida'] ?? 'ud';
         if (!in_array($unidad_medida, ['ud', 'kg'])) {
-            $unidad_medida = 'ud'; // Respaldo por seguridad
+            $unidad_medida = 'ud';
         }
 
-        // ── NUEVO: Tratar el stock según la unidad (permitir decimales si es peso) ──
         $rawStock = $_POST['stock'] ?? '0';
-        $rawStock = str_replace(',', '.', $rawStock); // Cambia comas por puntos por si teclean en formato ES
+        $rawStock = str_replace(',', '.', $rawStock);
         $stockFinal = ($unidad_medida === 'kg') ? floatval($rawStock) : intval($rawStock);
 
-        // ── Construcción del array de datos para el Modelo ──
         $data = [
             'business_id' => $business['id'],
             'category_id' => $category_id,
             'nombre' => trim($_POST['nombre'] ?? ''),
             'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'precio' => floatval(str_replace(',', '.', $_POST['precio'] ?? 0)), // Aseguramos formato decimal también en precio
-            'unidad_medida' => $unidad_medida, // 🔥 NUEVO: Guardamos la unidad de medida
-            'stock' => $stockFinal,             // 🔥 MODIFICADO: Ahora guarda enteros o decimales
+            'precio' => floatval(str_replace(',', '.', $_POST['precio'] ?? 0)),
+            'unidad_medida' => $unidad_medida,
+            'stock' => $stockFinal,
             'imagen' => $imagenNombre,
             'activo' => isset($_POST['activo']) ? 1 : 0,
         ];
@@ -463,7 +461,6 @@ class BusinessDashboardController
             header('Location: ' . BASE_URL . '/business/dashboard/products');
             exit;
         } catch (\Throwable $e) {
-            // Si la BD falla, limpiamos el archivo físico subido
             if ($imagenNombre && file_exists(ROOT_DIR . '/public/img/products/' . $imagenNombre)) {
                 @unlink(ROOT_DIR . '/public/img/products/' . $imagenNombre);
             }
@@ -473,11 +470,15 @@ class BusinessDashboardController
         }
     }
 
-    public function productsEdit($id)
+    /**
+     * Muestra el formulario de edición de producto.
+     *
+     * @param int $id
+     * @return void
+     */
+    public function productsEdit(int $id)
     {
         $business = $this->requireBusinessProfile();
-
-        // Tu código actual para buscar el producto (puede ser findById o similar)
         $product = \App\Models\Product::findById($id);
 
         if (!$product || $product->business_id != $business['id']) {
@@ -486,14 +487,17 @@ class BusinessDashboardController
             exit;
         }
 
-        // 🌟 REEMPLAZA TU CONSULTA ANTIGUA ($db->query...) POR ESTA LÍNEA:
         $cats = \App\Models\Category::getChildrenByParentAndType($business['id_categoria'], 'producto');
-
-        // Cargamos la vista que me acabas de enseñar
         require_once ROOT_DIR . '/resources/views/business/products/form.php';
     }
 
-    public function productsUpdate($id)
+    /**
+     * Actualiza un producto existente.
+     *
+     * @param int $id
+     * @return void
+     */
+    public function productsUpdate(int $id)
     {
         $business = $this->requireBusinessProfile();
         $product = \App\Models\Product::findById($id);
@@ -506,14 +510,12 @@ class BusinessDashboardController
 
         $imagenNombre = $product->imagen;
 
-        // ── Procesar nueva imagen si se sube ──
         if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['imagen'];
 
             $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mimeType = finfo_file($finfo, $file['tmp_name']);
-            finfo_close($finfo);
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $mimeType = $finfo->file($file['tmp_name']);
 
             if (!in_array($mimeType, $allowedMimes)) {
                 Session::setFlash('error', 'Solo se permiten imágenes (JPG, PNG, GIF, WebP).');
@@ -527,7 +529,6 @@ class BusinessDashboardController
                 exit;
             }
 
-            // Eliminar imagen física anterior para optimizar espacio
             if ($product->imagen) {
                 $oldPath = ROOT_DIR . '/public/img/products/' . $product->imagen;
                 if (file_exists($oldPath)) {
@@ -555,7 +556,6 @@ class BusinessDashboardController
                 try {
                     \App\Core\ImageHelper::compress($uploadPath, $uploadPath, 80, 1200, 1200);
                 } catch (\Throwable $e) {
-                    // Continuar si falla compresión
                 }
             } else {
                 Session::setFlash('error', 'Error al subir la imagen.');
@@ -564,28 +564,23 @@ class BusinessDashboardController
             }
         }
 
-        // 🔥 SOLUCIÓN AL ERROR 1366: Mismo tratamiento en la edición
         $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? intval($_POST['category_id']) : null;
-
-        // ── NUEVO: Validar unidad de medida recibida del formulario de edición ──
         $unidad_medida = $_POST['unidad_medida'] ?? 'ud';
         if (!in_array($unidad_medida, ['ud', 'kg'])) {
-            $unidad_medida = 'ud'; // Respaldo por seguridad
+            $unidad_medida = 'ud';
         }
 
-        // ── NUEVO: Tratar el stock según la unidad (permitir decimales si es peso) ──
         $rawStock = $_POST['stock'] ?? '0';
-        $rawStock = str_replace(',', '.', $rawStock); // Cambia comas por puntos por si teclean en formato ES
+        $rawStock = str_replace(',', '.', $rawStock);
         $stockFinal = ($unidad_medida === 'kg') ? floatval($rawStock) : intval($rawStock);
 
-        // ── Reconstrucción del array de datos para la actualización ──
         $data = [
             'category_id' => $category_id,
             'nombre' => trim($_POST['nombre'] ?? ''),
             'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'precio' => floatval(str_replace(',', '.', $_POST['precio'] ?? 0)), // Aseguramos formato decimal en precio
-            'unidad_medida' => $unidad_medida, // 🔥 NUEVO: Actualizamos la unidad de medida
-            'stock' => $stockFinal,             // 🔥 MODIFICADO: Guarda enteros o decimales según corresponda
+            'precio' => floatval(str_replace(',', '.', $_POST['precio'] ?? 0)),
+            'unidad_medida' => $unidad_medida,
+            'stock' => $stockFinal,
             'imagen' => $imagenNombre,
             'activo' => isset($_POST['activo']) ? 1 : 0,
         ];
@@ -602,7 +597,13 @@ class BusinessDashboardController
         }
     }
 
-    public function productsDelete($id)
+    /**
+     * Elimina un producto o lo desactiva si tiene relaciones.
+     *
+     * @param int $id
+     * @return void
+     */
+    public function productsDelete(int $id)
     {
         $business = $this->requireBusinessProfile();
         $product = \App\Models\Product::findById($id);
@@ -614,10 +615,8 @@ class BusinessDashboardController
         }
 
         try {
-            // 1. Intentamos primero el borrado físico en la Base de Datos
             \App\Models\Product::delete($id);
 
-            // 2. SI Y SOLO SI se borró de la BD con éxito, limpiamos el disco
             if ($product->imagen) {
                 $imagePath = ROOT_DIR . '/public/img/products/' . $product->imagen;
                 if (file_exists($imagePath)) {
@@ -627,21 +626,13 @@ class BusinessDashboardController
 
             Session::setFlash('success', 'Producto eliminado permanentemente de la plataforma.');
         } catch (\Throwable $e) {
-            // 3. Capturamos si el error es por la restricción de clave foránea (SQLSTATE 23000)
             if ($e->getCode() == 23000 || strpos($e->getMessage(), '1451') !== false) {
-
-                // Pasamos al "Borrado Lógico": Lo dejamos marcado como inactivo (activo = 0)
-                // NOTA: Adapta esta línea a cómo guardes o actualices en tu modelo Product
-                // Por ejemplo, si usas una consulta directa o un método update:
-                // Prueba con getConnection()
                 $db = \App\Core\Database::getInstance()->getConnection();
                 $stmt = $db->prepare("UPDATE product SET activo = 0 WHERE id = :id");
                 $stmt->execute(['id' => $id]);
 
-                // Mantenemos la imagen a salvo en el disco para que las compras antiguas no se queden rotas
                 Session::setFlash('success', 'El producto tiene pedidos asociados y no se puede destruir. Se ha desactivado y ocultado del marketplace automáticamente.');
             } else {
-                // Si es cualquier otro error real de código o conexión, sí mostramos el error
                 Session::setFlash('error', 'Error al eliminar: ' . $e->getMessage());
             }
         }
@@ -650,35 +641,28 @@ class BusinessDashboardController
         exit;
     }
 
-    // ---------------------------------------------------------------------
-    // CONFIGURACIÓN DE PERFIL (SETTINGS)
-    // ---------------------------------------------------------------------
-
+    /**
+     * Muestra el formulario de configuración del perfil.
+     *
+     * @return void
+     */
     public function settings()
     {
-        // 1. Obtener el perfil básico del comercio
         $business = $this->requireBusinessProfile();
 
         $db = Database::getInstance()->getConnection();
-
-        // 🔑 ASEGURAMOS EL ID DEL NEGOCIO
-        // Si por algún motivo $business['id'] no estuviera definido, usamos el de la sesión como salvavidas
         $businessId = $business['id'] ?? Session::get('business_id');
 
-        // 2. Buscamos el address_id en la tabla pivote (IGUAL que hace tu AdminController)
         $stmtGetAddr = $db->prepare("SELECT address_id FROM business_address WHERE business_id = ?");
         $stmtGetAddr->execute([$businessId]);
         $addressId = $stmtGetAddr->fetchColumn();
 
         if ($addressId) {
-            // 3. Si existe el puente, traemos los campos específicos de la tabla address
             $stmtAddr = $db->prepare("SELECT calle, numero, codigo_postal, ciudad, provincia FROM address WHERE id = ?");
             $stmtAddr->execute([$addressId]);
             $address = $stmtAddr->fetch(PDO::FETCH_ASSOC);
 
             if ($address) {
-                // 🔑 ASIGNACIÓN MANUAL: Evitamos usar array_merge para que el 'id' de la dirección 
-                // NO destruya ni pise el 'id' del negocio en la vista.
                 $business['calle']         = $address['calle'];
                 $business['numero']        = $address['numero'];
                 $business['codigo_postal'] = $address['codigo_postal'];
@@ -686,7 +670,6 @@ class BusinessDashboardController
                 $business['provincia']     = $address['provincia'];
             }
         } else {
-            // Colchón de seguridad para comercios nuevos que entran por primera vez
             $business['calle']         = '';
             $business['numero']        = '';
             $business['codigo_postal'] = '';
@@ -694,67 +677,52 @@ class BusinessDashboardController
             $business['provincia']     = '';
         }
 
-        // 4. Cargar las categorías padre para el select unificado
         $stmtCategory = $db->query("SELECT id, nombre FROM category WHERE parent_id IS NULL ORDER BY nombre ASC");
         $categorias_padre = $stmtCategory->fetchAll(PDO::FETCH_ASSOC);
 
-        // 5. Definir el rol del panel actual
         $rol = 'business';
 
-        // 6. Cargar la vista compartida
         require_once ROOT_DIR . '/resources/views/layout/business_form.php';
     }
 
     /**
-     * Actualiza la configuración y dirección del comercio desde el panel del comerciante.
-     * POST /business/dashboard/settings
+     * Actualiza la configuración y dirección del comercio.
+     *
+     * @return void
      */
     public function updateSettings()
     {
-        // Recuperamos el perfil actual del negocio (debe contener id, logo_path y hero_path)
         $business = $this->requireBusinessProfile();
         $db = Database::getInstance()->getConnection();
         $uploader = new \App\Core\FileUploader(ROOT_DIR . '/public/uploads/businesses');
 
         try {
-            // 1. PROCESAR Y VALIDAR TODO EL FORMULARIO DE GOLPE
             $formData = \App\Core\BusinessFormHandler::process($_POST);
 
-            // 2. Validación específica del teléfono (9 dígitos exactos) para paridad con setup()
             if (!preg_match('/^\d{9}$/', $formData['telefono'])) {
                 throw new \InvalidArgumentException('El número de teléfono debe constar exactamente de 9 dígitos numéricos.');
             }
 
-            // 3. GESTIÓN DE ARCHIVOS UNIFICADA
-            // Pasamos los paths actuales guardados en $business para conservarlos si no se sube nada nuevo
             $images = $uploader->uploadBusinessImages(
                 $_FILES,
                 $business['logo_path'] ?? null,
                 $business['hero_path'] ?? null
             );
         } catch (\InvalidArgumentException $e) {
-            // Captura errores de validación de campos de texto o del teléfono
             Session::setFlash('error', $e->getMessage());
-            Session::set('setup_old', $_POST); // Almacenar para repoblar en caso de error
+            Session::set('setup_old', $_POST);
             header('Location: ' . BASE_URL . '/business/dashboard/settings');
             exit;
         } catch (\Exception $e) {
-            // Captura errores de imágenes (Formatos incorrectos, archivos corruptos, etc.)
             Session::setFlash('error', 'Error multimedia: ' . $e->getMessage());
             Session::set('setup_old', $_POST);
             header('Location: ' . BASE_URL . '/business/dashboard/settings');
             exit;
         }
 
-        // ==========================================
-        // 4. TRANSACCIÓN ATÓMICA EN BASE DE DATOS
-        // ==========================================
         try {
             $db->beginTransaction();
 
-            // ACCIÓN A: Actualizar datos básicos e imágenes en la tabla business
-            // 🔒 SEGURIDAD: Como este es el panel del comerciante, bajo ningún concepto 
-            // incluimos en el UPDATE campos críticos como 'user_id' o 'activo'.
             $sqlBus = "UPDATE business SET 
                         nombre = ?, 
                         descripcion = ?, 
@@ -774,19 +742,17 @@ class BusinessDashboardController
                 $formData['telefono'],
                 $formData['email'],
                 $formData['web'],
-                $images['logo_path'], // Nueva ruta física o la que ya existía
-                $images['hero_path'],  // Nueva ruta física o la que ya existía
+                $images['logo_path'],
+                $images['hero_path'],
                 $formData['categoria_id'],
                 $business['id']
             ]);
 
-            // ACCIÓN B: Buscar si ya tiene una dirección asociada en la tabla pivote
             $stmtGetAddr = $db->prepare("SELECT address_id FROM business_address WHERE business_id = ?");
             $stmtGetAddr->execute([$business['id']]);
             $addressId = $stmtGetAddr->fetchColumn();
 
             if ($addressId) {
-                // Si ya existe la dirección, se hace UPDATE en la tabla address
                 $sqlAddr = "UPDATE address SET 
                             calle = ?, 
                             numero = ?, 
@@ -804,7 +770,6 @@ class BusinessDashboardController
                     $addressId
                 ]);
             } else {
-                // Si por algún motivo raro inicial no tenía dirección, la creamos y vinculamos
                 $sqlNewAddr = "INSERT INTO address (calle, numero, codigo_postal, ciudad, provincia) VALUES (?, ?, ?, ?, ?)";
                 $stmtNewAddr = $db->prepare($sqlNewAddr);
                 $stmtNewAddr->execute([
@@ -820,7 +785,6 @@ class BusinessDashboardController
                 $stmtPivot->execute([$business['id'], $newAddrId]);
             }
 
-            // Si todo es correcto, consolidamos la transacción
             $db->commit();
             Session::setFlash('success', 'Perfil y dirección actualizados correctamente.');
         } catch (\Exception $e) {
