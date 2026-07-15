@@ -45,11 +45,16 @@ class Business
      */
     public static function getAll($search = '', $categoryId = null, $limit = null, $offset = 0)
     {
+        // Solo busca en caché si está activa en las variables de entorno
+        $cacheEnabled = filter_var($_ENV['CACHE_ENABLED'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
         $cacheKey = 'businesses_' . md5($search . '_' . $categoryId . '_' . $limit . '_' . $offset);
 
-        $cached = \App\Core\Cache::get($cacheKey);
-        if ($cached) {
-            return $cached;
+        if ($cacheEnabled) {
+            $cached = \App\Core\Cache::get($cacheKey);
+            if ($cached) {
+                return $cached;
+            }
         }
 
         $db = Database::getInstance()->getConnection();
@@ -83,7 +88,9 @@ class Business
         $stmt->execute($params);
         $result = $stmt->fetchAll(PDO::FETCH_CLASS, self::class);
 
-        \App\Core\Cache::set($cacheKey, $result, 1800);
+        if ($cacheEnabled) {
+            \App\Core\Cache::set($cacheKey, $result, 1800);
+        }
 
         return $result;
     }

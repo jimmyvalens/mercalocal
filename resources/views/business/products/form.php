@@ -104,7 +104,7 @@
                 <label class="inline-flex items-center cursor-pointer relative shrink-0">
                     <input type="checkbox" name="activo" id="activo" value="1" <?php echo (!isset($product) || $product->activo == 1) ? 'checked' : ''; ?> class="sr-only peer">
 
-                    <div class="relative w-10 h-5 bg-gray-200 rounded-full peer-focus:outline-none peer-checked:bg-[#059669] after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:bg-white after:border after:border-gray-300 after:rounded-full after:transform after:transition-all peer-checked:after:translate-x-full"></div>
+                    <div class="relative w-10 h-5 bg-gray-200 rounded-full peer-focus:outline-none peer-checked:bg-[#059669] after:content-[''] after:absolute after:top-0.4 after:left-0.5 after:h-5 after:w-5 after:bg-white after:border after:border-gray-300 after:rounded-full after:transform after:transition-all peer-checked:after:translate-x-full"></div>
                 </label>
             </div>
 

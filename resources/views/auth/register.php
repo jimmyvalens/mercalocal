@@ -84,15 +84,15 @@ $ic = function (string $field) use ($errors) {
             <!-- Contrasena -->
             <div>
                 <label for="password" class="block text-sm font-bold mb-1" style="color:var(--ml-text);">
-                    Contrasena <span class="text-red-500">*</span>
+                    Contraseña <span class="text-red-500">*</span>
                 </label>
                 <input id="password" name="password" type="password"
-                    placeholder="Minimo 8 caracteres"
+                    placeholder="Minimo 6 caracteres"
                     class="<?= $ic('password') ?>">
                 <?php if (isset($errors['password'])): ?>
                     <p class="mt-1 text-xs text-red-600"><i class="fa-solid fa-circle-exclamation mr-1"></i><?= htmlspecialchars($errors['password']) ?></p>
                 <?php else: ?>
-                    <p class="mt-1 text-xs" style="color:var(--ml-text-muted);">Minimo 8 caracteres</p>
+                    <p class="mt-1 text-xs" style="color:var(--ml-text-muted);">Minimo 6 caracteres</p>
                 <?php endif; ?>
             </div>
 
