@@ -4,13 +4,13 @@
 [![MySQL](https://img.shields.io/badge/mysql-%2300f.svg?style=flat&logo=mysql&logoColor=white)](https://www.mysql.com/)
 [![Tailwind CSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-**Mercalocal** es una plataforma tipo marketplace diseñada específicamente para la digitalización, visibilidad y dinamización de comercios, negocios y profesionales locales. Este proyecto ha sido desarrollado como el **Trabajo de Fin de Grado (TFG)** para el Ciclo Superior de Desarrollo de Aplicaciones Web (DAW).
+**Mercalocal** es una plataforma tipo marketplace diseñada específicamente para la digitalización, visibilidad y dinamización de comercios y negocios locales. Este proyecto ha sido desarrollado como el **Trabajo de Fin de Grado (TFG)** para el Ciclo Superior de Desarrollo de Aplicaciones Web (DAW).
 
 ---
 
 ## 🚀 Enfoque del Proyecto & Arquitectura
 
-A diferencia de los enfoques tradicionales basados en frameworks pesados y complejos, **Mercalocal** se ha construido bajo una filosofía de **código limpio, directo y mantenible**, optimizado para el desarrollo independiente (*solopreneur*). 
+A diferencia de los enfoques tradicionales basados en frameworks pesados y complejos, **Mercalocal** se ha construido bajo una filosofía de **código limpio, directo y mantenible**, optimizado para el desarrollo independiente. 
 
 * **Arquitectura Limpia (Vanilla PHP):** Implementación de un patrón estructurado con un núcleo (*Core*) desacoplado.
 * **Seguridad y Eficiencia:** Abstracción completa de la base de datos mediante **PDO** con consultas preparadas para mitigar inyecciones SQL (SQLi).
@@ -40,7 +40,7 @@ mercalocal/
 │   └── Models/       # Capa de datos y consultas SQL (PDO)
 ├── public/           # Único punto de entrada accesible a la web
 │   └── index.php     # Front Controller
-├── views/            # Plantillas y vistas de la interfaz de usuario
+├── resources/        # Plantillas y vistas de la interfaz de usuario
 ├── logs/             # Registros del sistema (simulación de correo, etc.)
 └── README.md         # Documentación del proyecto
 
@@ -59,7 +59,7 @@ mercalocal/
 
 1. **Clonar el repositorio:**
 ```bash
-git clone [https://github.com/jimmyvalens/mercalocal.git](https://github.com/jimmyvalens/mercalocal.git)
+git clone https://github.com/jimmyvalens/mercalocal.git
 cd mercalocal
 
 ```
@@ -78,7 +78,7 @@ Asegúrate de apuntar la raíz (*DocumentRoot*) de tu servidor web (Apache/Nginx
 
 ## 📧 Funcionalidades Destacadas (En Desarrollo / Producción)
 
-* **Directorio de Negocios:** Buscador y filtros avanzados para clasificar profesionales y comercios de la localidad.
+* **Directorio de Negocios:** Buscador y filtros avanzados para clasificar los comercios de la localidad.
 * **Panel de Gestión:** Espacio privado para que los comerciantes locales gestionen su perfil, productos y horarios.
 * **Núcleo Extensible (Mailer/Logs):** Sistema preparado para la simulación y envío de notificaciones por correo electrónico estructurado para futuras integraciones de servicios SMTP comerciales.
 
