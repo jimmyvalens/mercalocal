@@ -247,7 +247,7 @@ class AuthController
 
         if (empty($data['password'])) {
             $errors['password'] = 'La contraseña es obligatoria.';
-        } elseif (strlen($data['password']) < 8) {
+        } elseif (strlen($data['password']) < 6) {
             $errors['password'] = 'La contraseña debe tener al menos 8 caracteres.';
         }
 

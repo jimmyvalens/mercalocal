@@ -1,5 +1,5 @@
 /* =========================================================
-   Mercalocal — Hoja de estilos principal (v4)
+   Mercalocal — Hoja de estilos principal (v4 Avanzado)
    ========================================================= */
 
 /* Importación nativa de Tailwind v4 */
@@ -24,57 +24,34 @@ body {
     color: var(--color-secondary);
 }
 
-/* ── Componentes personalizados ── */
+/* ── Componentes personalizados con @apply ── */
 
 .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.625rem 1.25rem; /* py-2.5 px-5 */
-    background-color: var(--color-primary);
-    color: #ffffff;
-    font-weight: 700;
-    border-radius: 0.5rem; /* rounded-lg */
-    transition: background-color 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    /* Combinamos todas tus propiedades nativas en clases de Tailwind */
+    @apply inline-flex items-center justify-center py-2.5 px-5 bg-primary text-white font-bold rounded-lg shadow-xs transition-colors duration-150;
 }
+
 .btn-primary:hover {
-    background-color: var(--color-primary-dark);
+    @apply bg-primary-dark;
 }
-.btn-primary:active {
-    background-color: #d45507; /* slightly darker */
-}
+
 .btn-primary:focus {
-    outline: none;
-    box-shadow: 0 0 0 4px rgba(249,115,22,0.12);
+    @apply outline-hidden ring-4 ring-primary/12;
 }
 
 .gh-card {
-    background-color: #ffffff;
-    border: 1px solid #e5e7eb; /* gray-200 */
-    border-radius: 0.5rem;
-    box-shadow: none;
-    transition: border-color 150ms ease, box-shadow 150ms ease;
-}
-.gh-card:hover {
-    border-color: #d1d5db; /* gray-300 */
+    @apply bg-white border border-gray-200 rounded-lg transition-all duration-150 hover:border-gray-300;
 }
 
 .gh-input {
-    width: 100%;
-    padding: 0.625rem 1rem; /* py-2.5 px-4 */
-    background-color: #ffffff;
-    border: 1px solid #d1d5db; /* gray-300 */
-    border-radius: 0.5rem;
-    color: #111827; /* gray-900 */
-    font-size: 0.875rem; /* text-sm */
-    transition: border-color 150ms ease, box-shadow 150ms ease;
+    @apply w-full py-2.5 px-4 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 transition-all duration-150 focus:outline-hidden focus:border-primary focus:ring-3 focus:ring-primary/8;
 }
-.gh-input::placeholder {
-    color: #9ca3af; /* placeholder-gray-400 */
-}
-.gh-input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(249,115,22,0.08);
+
+/* ── LISTA DE SEGURIDAD (SAFELIST) PARA TAILWIND v4 ── */
+/* En v4, el escáner lee todo el archivo CSS. Al escribir estas clases aquí, 
+   forzamos a Tailwind a no borrarlas nunca, permitiendo que tu base de datos 
+   inyecte colores dinámicos en los badges de los negocios sin que se rompan.
+*/
+.safelist-badges {
+    @apply bg-amber-50 text-amber-800 border-amber-200 bg-emerald-50 text-emerald-800 border-emerald-200 bg-blue-50 text-blue-800 border-blue-200 bg-indigo-50 text-indigo-800 border-indigo-200 bg-teal-50 text-teal-800 border-teal-200 bg-red-50 text-red-800 border-red-200 bg-gray-50 text-gray-700 border-gray-200;
 }

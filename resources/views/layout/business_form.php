@@ -25,7 +25,7 @@ $action = $action ?? ($isEdit ? 'edit' : ($is_admin ? 'create' : 'setup'));
 
 
 // ==========================================
-// CONFIGURACIÓN DINÁMICA BASADA EN VARIABLES YA COBRADAS
+// CONFIGURACIÓN DINÁMICA BASADA EN VARIABLES
 // ==========================================
 
 // 1. Configuración de la ruta "Volver atrás"
@@ -88,7 +88,7 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
             <h1 class="text-2xl font-bold text-gray-900">
                 <?php
                 if ($is_admin) {
-                    echo $isEdit ? 'Editar Comercio desde Admin' : 'Registrar Nuevo Comercio';
+                    echo $isEdit ? 'Editar Comercio' : 'Registrar Nuevo Comercio';
                 } else {
                     echo $isEdit ? 'Modificar mi Perfil Comercial' : 'Configuración Inicial de tu Comercio';
                 }
@@ -343,7 +343,7 @@ require_once ROOT_DIR . '/resources/views/main_header.php';
                     </div>
                     <label class="inline-flex items-center cursor-pointer relative">
                         <input type="checkbox" name="activo" value="1" <?php echo (($business['activo'] ?? 0) == 1) ? 'checked' : ''; ?> class="sr-only peer">
-                        <div class="relative w-12 h-6 bg-gray-200 rounded-full peer-focus:outline-none peer-checked:bg-[#059669] after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:bg-white after:border after:border-gray-300 after:rounded-full after:transition-all peer-checked:after:translate-x-6"></div>
+                        <div class="relative w-12 h-6 bg-gray-200 rounded-full peer-focus:outline-none peer-checked:bg-[#059669] after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:bg-white after:border after:border-gray-300 after:rounded-full after:transition-all peer-checked:after:translate-x-3"></div>
                     </label>
                 </div>
 
